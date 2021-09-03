@@ -19,5 +19,4 @@
 
 rootProject.name = "jconstraints"
 include("jconstraints-core", "jconstraints-cvc4", "jconstraints-z3", "jconstraints-metasolver", "jconstraints-runner", "jconstraints-benchmarktest")
-
-
+include("jconstraints-dsl")
