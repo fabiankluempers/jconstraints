@@ -1,33 +1,43 @@
-import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
 
-class SolverCompositionDSL
+class SolverCompositionDSL {
+	companion object {
+		fun sequentialSolver(func: SequentialSolverCompositionBuilder.() -> Unit) : SolverComposition {
+			return SequentialSolver()
+		}
+	}
+}
+
+enum class Sequential {
+	STOP,
+	CONTINUE,
+}
 
 class SequentialSolverCompositionBuilder(){
-
+	var name: String = ""
 }
 
 class SequentialSolverBuilder(){
-
+	var timer: Time = Time.seconds(0)
 }
 
 fun SolverCompositionDSL.sequentialSolver(func: SequentialSolverCompositionBuilder.() -> Unit) : SolverComposition {
 	return SequentialSolver()
 }
 
-fun SequentialSolverCompositionBuilder.solver(solver : Solver, func: SequentialSolverBuilder.() -> Unit) {
+fun SequentialSolverCompositionBuilder.solver(solver : Solver, func: SequentialSolverBuilder.() -> Unit = {}) {
 
 }
 
-fun SequentialSolverCompositionBuilder.finalVerdict( func: (solverResults : Map<String,ConstraintSolver.Result>) -> ConstraintSolver.Result) {
+fun SequentialSolverCompositionBuilder.finalVerdict( func: (solverResults : List<Pair<String, Result>>) -> Result) {
 
 }
 
-fun <T> SequentialSolverBuilder.before(func: (expression: Expression<T>) -> Unit) {
+fun <T> SequentialSolverBuilder.runIf(func: (expression: Expression<T>) -> Boolean) {
 
 }
 
-fun <T> SequentialSolverBuilder.after(func: (expression: Expression<T>, result : ConstraintSolver.Result, valuation: Valuation) -> Unit) {
+fun <T> SequentialSolverBuilder.evaluate(func: (expression: Expression<T>, result : Result, valuation: Valuation) -> Sequential) {
 
 }

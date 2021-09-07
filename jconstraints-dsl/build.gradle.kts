@@ -14,5 +14,6 @@ repositories {
 
 dependencies {
     implementation(project(":jconstraints-core"))
+    implementation(project(":jconstraints-metasolver"))
     implementation(kotlin("stdlib"))
 }
