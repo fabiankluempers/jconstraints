@@ -2,7 +2,6 @@ import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpress
 
 class DSLPlayground {
 	init {
-
 		val cvcseqeval = SolverCompositionDSL.sequentialSolver {
 			solver(Solver.CVC4) {
 				timer = Time.minutes(1)
@@ -34,8 +33,7 @@ class DSLPlayground {
 			}
 			waitFor(3)
 			finalVerdict { list ->
-				list
-					.groupBy { it.second }
+				list.groupBy { it.second }
 					.maxByOrNull { it.value.size }?.key ?: Result.DONT_KNOW
 			}
 		}
