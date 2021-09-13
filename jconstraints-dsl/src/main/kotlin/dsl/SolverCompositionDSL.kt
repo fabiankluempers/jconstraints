@@ -1,3 +1,5 @@
+package dsl
+
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
 
@@ -30,7 +32,7 @@ fun SequentialSolverCompositionBuilder.solver(solver : SolverComposition, func: 
 
 }
 
-fun SequentialSolverCompositionBuilder.finalVerdict( func: (solverResults : List<Pair<String, Result>>) -> Result) {
+fun SequentialSolverCompositionBuilder.finalVerdict(func: (solverResults : List<Pair<String, Result>>) -> Result) {
 
 }
 
@@ -57,7 +59,7 @@ fun ParallelSolverCompositionBuilder.solver(solver : SolverComposition, func: Pa
 
 }
 
-fun ParallelSolverCompositionBuilder.finalVerdict( func: (solverResults : List<Pair<String, Result>>) -> Result) {
+fun ParallelSolverCompositionBuilder.finalVerdict(func: (solverResults : List<Pair<String, Result>>) -> Result) {
 
 }
 

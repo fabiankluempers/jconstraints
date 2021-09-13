@@ -1,8 +1,6 @@
+package dsl
+
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import gov.nasa.jpf.constraints.solvers.encapsulation.ProcessWrapperSolver
 import java.util.concurrent.TimeUnit
 
 enum class Result {
