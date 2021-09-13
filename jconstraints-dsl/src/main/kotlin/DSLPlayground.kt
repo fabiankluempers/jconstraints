@@ -2,26 +2,41 @@ import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpress
 
 class DSLPlayground {
 	init {
+
 		val cvcseqeval = SolverCompositionDSL.sequentialSolver {
 			solver(Solver.CVC4) {
 				timer = Time.minutes(1)
 				name = "CVC4"
-				runIf<Boolean> {
+				runIf {
 					it.accept(StringOrFloatExpressionVisitor(), null)
 				}
-				evaluate<Boolean> { expression, result, valuation ->
+				continueIf { expression, result, valuation ->
 					when (result) {
-						Result.SAT -> if (expression.evaluateSMT(valuation)) Sequential.STOP else Sequential.CONTINUE
-						Result.UNSAT -> Sequential.STOP
-						Result.DONT_KNOW -> Sequential.CONTINUE
+						Result.SAT -> !expression.evaluateSMT(valuation)
+						Result.UNSAT -> false
+						Result.DONT_KNOW -> true
 					}
 				}
 			}
-			solver(Solver.Z3) {
-				name = "Z3"
+			solver(Solver.Z3)
+			finalVerdict { it.lastOrNull()?.second ?: Result.DONT_KNOW }
+		}
+
+		val majorityVote = SolverCompositionDSL.parallelSolver {
+			solver(Solver.Z3)
+			solver(Solver.CVC4)
+			solver(cvcseqeval) {
+				timer = Time.seconds(120)
+				runIf {
+					//hier könnte die expression untersucht werden
+					true
+				}
 			}
-			finalVerdict {
-				it.lastOrNull()?.second ?: Result.DONT_KNOW
+			waitFor(3)
+			finalVerdict { list ->
+				list
+					.groupBy { it.second }
+					.maxByOrNull { it.value.size }?.key ?: Result.DONT_KNOW
 			}
 		}
 	}
