@@ -1,7 +1,9 @@
 package dsl
 
+import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import solverComposition.entity.*
 
 class SolverCompositionDSL {
 	companion object {
@@ -32,7 +34,7 @@ fun SequentialSolverCompositionBuilder.solver(solver : SolverComposition, func: 
 
 }
 
-fun SequentialSolverCompositionBuilder.finalVerdict(func: (solverResults : List<Pair<String, Result>>) -> Result) {
+fun SequentialSolverCompositionBuilder.finalVerdict(func: (solverResults : Map<String, SolverRunResult>) -> ConstraintSolver.Result) {
 
 }
 
@@ -40,7 +42,7 @@ fun SequentialSolverBuilder.runIf(func: (expression: Expression<Boolean>) -> Boo
 
 }
 
-fun SequentialSolverBuilder.continueIf(func: (expression: Expression<Boolean>, result : Result, valuation: Valuation) -> Boolean) {
+fun SequentialSolverBuilder.continueIf(func: (expression: Expression<Boolean>, solverRunResult : SolverRunResult, valuation: Valuation) -> Boolean) {
 
 }
 //endregion
@@ -50,7 +52,6 @@ class ParallelSolverCompositionBuilder() {
 	lateinit var timer: Time
 }
 
-
 class ParallelSolverBuilder() {
 	lateinit var name: String
 }
@@ -59,7 +60,7 @@ fun ParallelSolverCompositionBuilder.solver(solver : SolverComposition, func: Pa
 
 }
 
-fun ParallelSolverCompositionBuilder.finalVerdict(func: (solverResults : List<Pair<String, Result>>) -> Result) {
+fun ParallelSolverCompositionBuilder.finalVerdict(func: (solverResults : Map<String, SolverRunResult>) -> ConstraintSolver.Result) {
 
 }
 

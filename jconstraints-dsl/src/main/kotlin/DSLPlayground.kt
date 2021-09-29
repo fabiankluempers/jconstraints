@@ -1,4 +1,8 @@
 import dsl.*
+import gov.nasa.jpf.constraints.api.ConstraintSolver
+import solverComposition.entity.SolverRunResult
+import solverComposition.entity.Solver
+import solverComposition.entity.Time
 import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
 
 class DSLPlayground {
@@ -18,16 +22,21 @@ class DSLPlayground {
 					//specify based on the expression, result and valuation obtained from running this solver,
 					//whether to continue or stop this sequential solver composition.
 					when (result) {
-						Result.SAT -> !expression.evaluateSMT(valuation)
-						Result.UNSAT -> false
-						Result.DONT_KNOW -> true
+						SolverRunResult.SAT -> !expression.evaluateSMT(valuation)
+						SolverRunResult.UNSAT -> false
+						SolverRunResult.DONT_KNOW -> true
+						SolverRunResult.DID_NOT_RUN -> true
 					}
 				}
 			}
-			solver(Solver.Z3)
+			solver(Solver.Z3) {
+				name = "Z3"
+			}
 			//specify how a final verdict is obtained from individual solver runs.
 			finalVerdict {
-				it.lastOrNull()?.second ?: Result.DONT_KNOW
+				val z3Result = it["Z3"]!!
+				val cvc4Result = it["CVC4"]!!
+				if (z3Result.ran()) z3Result.toResult() else cvc4Result.toResult()
 			}
 		}
 
@@ -36,15 +45,19 @@ class DSLPlayground {
 			solver(Solver.CVC4)
 			solver(cvcSeqEval) {
 				timer = Time.seconds(120)
+				name = "CVCSeqEval"
 				runIf {
 					true
 				}
 			}
 			//specify number of solvers that need to return a result before stopping the parallel composition.
 			waitFor(3)
-			finalVerdict { list ->
-				list.groupBy { it.second }
-					.maxByOrNull { it.value.size }?.key ?: Result.DONT_KNOW
+			finalVerdict { results ->
+				results
+					.map(Map.Entry<String, SolverRunResult>::value)
+					.filter(SolverRunResult::ran)
+					.groupBy { it }
+					.maxByOrNull { it.value.size }?.key?.toResult() ?: ConstraintSolver.Result.DONT_KNOW
 			}
 		}
 	}

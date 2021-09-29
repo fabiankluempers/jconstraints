@@ -1,4 +1,4 @@
-package dsl
+package solverComposition.entity
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
