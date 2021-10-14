@@ -35,4 +35,5 @@ dependencies {
     implementation(project(":jconstraints-core"))
     implementation(project(":jconstraints-metasolver"))
     implementation(kotlin("stdlib"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 }
