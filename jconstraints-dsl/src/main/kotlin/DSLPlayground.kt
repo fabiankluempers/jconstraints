@@ -1,26 +1,52 @@
+/*
+ * Copyright 2015 United States Government, as represented by the Administrator
+ *                of the National Aeronautics and Space Administration. All Rights Reserved.
+ *           2017-2021 The jConstraints Authors
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import dsl.*
 import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.api.Expression
+import gov.nasa.jpf.constraints.api.Valuation
+import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
+import solverComposition.dsl.*
 import solverComposition.entity.SolverRunResult
 import solverComposition.entity.Solver
 import solverComposition.entity.Time
 import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
 
+fun main() {
+	val parallelDontKnow = SolverCompositionDSL.parallelSolver {
+		solver(Solver.DONT_KNOW)
+	}
+	parallelDontKnow.solve(SMTProblem().allAssertionsAsConjunction, Valuation())
+}
+
 class DSLPlayground {
 	init {
+
+
 		val cvcSeqEval = SolverCompositionDSL.sequentialSolver {
 			solver(Solver.CVC4) {
-				//specify how long the solver should run before being killed.
 				timer = Time.minutes(1)
-				//specify a name by which this solver is identified in the finalVerdict block.
 				name = "CVC4"
 				runIf {
-					//specify whether to run this solver or not.
-					//expression visiting can be done here.
 					it.accept(StringOrFloatExpressionVisitor(), null)
 				}
 				continueIf { expression, result, valuation ->
-					//specify based on the expression, result and valuation obtained from running this solver,
-					//whether to continue or stop this sequential solver composition.
 					when (result) {
 						SolverRunResult.SAT -> !expression.evaluateSMT(valuation)
 						SolverRunResult.UNSAT -> false
@@ -32,13 +58,13 @@ class DSLPlayground {
 			solver(Solver.Z3) {
 				name = "Z3"
 			}
-			//specify how a final verdict is obtained from individual solver runs.
 			finalVerdict {
 				val z3Result = it["Z3"]!!
 				val cvc4Result = it["CVC4"]!!
 				if (z3Result.ran()) z3Result.toResult() else cvc4Result.toResult()
 			}
 		}
+
 
 		val majorityVote = SolverCompositionDSL.parallelSolver {
 			solver(Solver.Z3) //adds a solver
