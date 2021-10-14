@@ -18,7 +18,7 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.5.10"
+    kotlin("jvm") version "1.5.30"
     id("tools.aqua.jconstraints.java-fatjar-convention")
 }
 
