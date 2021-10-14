@@ -17,9 +17,10 @@
  * limitations under the License.
  */
 
-package gov.nasa.jpf.constraints.smtlibUtility.solver;
+package gov.nasa.jpf.constraints.smtlibUtility.smtconverter;
 
 import gov.nasa.jpf.constraints.api.Variable;
+import gov.nasa.jpf.constraints.types.BitLimitedBVIntegerType;
 import gov.nasa.jpf.constraints.types.BuiltinTypes;
 import java.io.PrintStream;
 import java.util.LinkedList;
@@ -73,7 +74,7 @@ public class SMTLibExportGenContext {
   private VarContext varContext = new VarContext(null);
 
   public SMTLibExportGenContext(PrintStream out) {
-    this.out = out;
+    this.out = new PrintStream(out, true);
   }
 
   void appendVar(Variable<?> var) {
@@ -114,13 +115,13 @@ public class SMTLibExportGenContext {
     }
   }
 
-  void push() {
+  public void push() {
     this.varContext.flush();
     out.println("(push)");
     this.varContext = new VarContext(this.varContext);
   }
 
-  void pop(int n) {
+  public void pop(int n) {
     for (int i = 0; i < n; i++) {
       out.println("(pop)");
       if (this.varContext.next != null) {
@@ -131,13 +132,28 @@ public class SMTLibExportGenContext {
 
   public void solve() {
     out.println("(check-sat)");
-    out.flush();
+  }
+
+  public void getModel() {
+    out.println("(get-model)");
+  }
+
+  public void getUnsatCore() {
+    out.println("(get-unsat-core)");
+  }
+
+  public void exit() {
+    out.println("(exit)");
   }
 
   public void flush() {
     this.varContext.flush();
     out.println(statementBuffer.toString());
     statementBuffer = new StringBuilder();
+  }
+
+  public void echo(String s) {
+    out.println("(echo " + s + (")"));
   }
 
   private String type(Variable v) {
@@ -154,6 +170,8 @@ public class SMTLibExportGenContext {
       return "String";
     } else if (BuiltinTypes.INTEGER.equals(v.getType())) {
       return "Int";
+    } else if (v.getType() instanceof BitLimitedBVIntegerType) {
+      return "(_ BitVec " + ((BitLimitedBVIntegerType) v.getType()).getNumBits() + ")";
     }
     throw new IllegalArgumentException("Unsupported type: " + v.getType());
   }
