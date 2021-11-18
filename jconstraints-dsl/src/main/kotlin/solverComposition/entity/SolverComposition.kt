@@ -30,24 +30,22 @@ import kotlin.time.DurationUnit
 abstract class ConstraintSolverBehaviour(
 	val identifier: String,
 	val featureFlags: Map<String, Boolean>,
-	val timerDuration: java.time.Duration,
 	val runIf: (Expression<Boolean>) -> Boolean,
 )
 
 class SequentialBehaviour(
 	identifier: String,
 	featureFlags: Map<String, Boolean>,
-	timerDuration: java.time.Duration,
 	runIf: (Expression<Boolean>) -> Boolean,
 	val continueIf: (Expression<Boolean>, ConstraintSolverComposition.Result, Valuation) -> Boolean,
-) : ConstraintSolverBehaviour(identifier, featureFlags, timerDuration, runIf)
+	val timerDuration: java.time.Duration,
+) : ConstraintSolverBehaviour(identifier, featureFlags, runIf)
 
 class ParallelBehaviour(
 	identifier: String,
 	featureFlags: Map<String, Boolean>,
-	timerDuration: java.time.Duration,
 	runIf: (Expression<Boolean>) -> Boolean,
-) : ConstraintSolverBehaviour(identifier, featureFlags, timerDuration, runIf)
+) : ConstraintSolverBehaviour(identifier, featureFlags, runIf)
 
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 	val solvers: List<SolverWithBehaviour<T>>,

@@ -26,12 +26,14 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.time.Duration
 import kotlin.jvm.Throws
 
 class ParallelComposition(
 	solvers: List<SolverWithBehaviour<ParallelBehaviour>>,
 	finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
-	val waitFor: Int
+	val waitFor: Int,
+	val timerDuration: Duration,
 ) : ConstraintSolverComposition<ParallelBehaviour>(solvers, finalVerdict) {
 
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
@@ -45,7 +47,7 @@ class ParallelComposition(
 				lateinit var solverResult: ConstraintSolver.Result
 				val valuation = Valuation()
 				try {
-					withTimeout(it.behaviour.timerDuration.toMillis()) {
+					withTimeout(timerDuration.toMillis()) {
 						solverResult = it.solver.solve(f, valuation)
 					}
 				} catch (e : TimeoutCancellationException) {

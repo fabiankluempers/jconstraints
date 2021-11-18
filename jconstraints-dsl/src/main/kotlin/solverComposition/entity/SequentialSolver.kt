@@ -38,9 +38,11 @@ class SequentialComposition(
 		var solverIndex: Int = 0
 		while (isContinue) {
 			val (solver, behaviour) = solvers[solverIndex]
+			//determine if solver should be executed
 			if (behaviour.runIf(f)) {
 				val valuation = Valuation()
 				lateinit var solverResult: ConstraintSolver.Result
+				//execute solver with timeout
 				runBlocking {
 					try {
 						withTimeout(behaviour.timerDuration.toMillis()) {
@@ -50,6 +52,7 @@ class SequentialComposition(
 						solverResult = ConstraintSolver.Result.TIMEOUT
 					}
 				}
+				//write result
 				finalVerdictMap[behaviour.identifier] = Result.fromResult(solverResult)
 				isContinue = behaviour.continueIf(f, Result.fromResult(solverResult), valuation)
 			} else {
@@ -57,9 +60,11 @@ class SequentialComposition(
 			}
 			solverIndex++
 		}
-		for (i in solverIndex..solvers.size) {
+		//write result for remaining solvers, that won't get executed
+		for (i in solverIndex until solvers.size) {
 			finalVerdictMap[solvers[i].behaviour.identifier] = Result.DID_NOT_RUN
 		}
+		//calculate finalVerdict
 		val finalResult = finalVerdict(finalVerdictMap.toMap())
 		finalVerdictMap.clear()
 		return finalResult

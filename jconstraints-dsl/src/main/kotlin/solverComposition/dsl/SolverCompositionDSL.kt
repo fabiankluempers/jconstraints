@@ -18,99 +18,45 @@
  */
 
 package solverComposition.dsl
-//
-//import gov.nasa.jpf.constraints.api.ConstraintSolver
-//import gov.nasa.jpf.constraints.api.Expression
-//import gov.nasa.jpf.constraints.api.Valuation
-//import solverComposition.entity.*
-//
-//object SolverCompositionDSL {
-//
-//	fun sequentialSolver(func: SequentialSolverCompositionBuilder.() -> Unit): ConstraintSolver {
-//		return SequentialSolver()
-//	}
-//
-//	fun parallelSolver(func: ParallelSolverCompositionBuilder.() -> Unit): ConstraintSolver {
-//		return ParallelSolver()
-//	}
-//
-//}
-//
-////region sequential
-//class SequentialSolverCompositionBuilder() {
-//
-//}
-//
-//sealed class SequentialSolverBuilder() {
-//	lateinit var timer: Time
-//	lateinit var name: String
-//}
-//
-//fun SequentialSolverCompositionBuilder.solver(
-//	solver: ConstraintSolver,
-//	func: SequentialSolverBuilder.() -> Unit = {}
-//) {
-//
-//}
-//
-//fun SequentialSolverCompositionBuilder.finalVerdict(func: (solverResults: Map<String, SolverRunResult>) -> ConstraintSolver.Result) {
-//
-//}
-//
-//fun SequentialSolverBuilder.runIf(func: (expression: Expression<Boolean>) -> Boolean) {
-//
-//}
-//
-//fun SequentialSolverBuilder.continueIf(func: (expression: Expression<Boolean>, solverRunResult: SolverRunResult, valuation: Valuation) -> Boolean) {
-//
-//}
-//
-//fun SequentialSolverBuilder.enableFeatures(func: FeatureBlock.() -> Unit) {
-//
-//}
-//
-//class FeatureBlock {
-//
-//}
-//
-//fun FeatureBlock.unsatCoreTracking(): UnsatCoreTrackingFeature {
-//	return UnsatCoreTrackingFeature()
-//}
-//
-//class UnsatCoreTrackingFeature {
-//	infix fun force(flag: Boolean) {
-//
-//	}
-//}
-//
-//
-//fun FeatureBlock.negatedValuation() {
-//
-//}
-////endregion
-//
-////region parallel
-//class ParallelSolverCompositionBuilder() {
-//	lateinit var timer: Time
-//}
-//
-//class ParallelSolverBuilder() {
-//	lateinit var name: String
-//}
-//
-//fun ParallelSolverCompositionBuilder.solver(solver: ConstraintSolver, func: ParallelSolverBuilder.() -> Unit = {}) {
-//
-//}
-//
-//fun ParallelSolverCompositionBuilder.finalVerdict(func: (solverResults: Map<String, SolverRunResult>) -> ConstraintSolver.Result) {
-//
-//}
-//
-//fun ParallelSolverCompositionBuilder.waitFor(numberOfSolvers: Int) {
-//
-//}
-//
-//fun ParallelSolverBuilder.runIf(func: (expression: Expression<Boolean>) -> Boolean) {
-//
-//}
-////endregion
+
+import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.api.Expression
+import solverComposition.entity.*
+
+
+object SolverCompositionDSL {
+	fun sequentialComposition(func: SequentialCompositionBuilder.() -> Unit): ConstraintSolver {
+		return SequentialCompositionBuilder().apply(func).build()
+	}
+
+	fun parallelComposition(func: ParallelCompositionBuilder.() -> Unit): ConstraintSolver {
+		return ParallelCompositionBuilder().apply(func).build()
+	}
+
+}
+
+abstract class CompositionBuilder<T : SolverBuilder<*>> {
+	protected lateinit var finalVerdict : (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result
+	internal abstract fun build() : ConstraintSolver
+	fun finalVerdict(func: (solverResults: Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result) {
+		finalVerdict = func
+	}
+
+	abstract fun solver(
+		solver: ConstraintSolver,
+		func: T.() -> Unit = {}
+	)
+}
+
+abstract class  SolverBuilder <T: ConstraintSolverBehaviour>{
+	lateinit var identifier: String
+	protected val featureFlags: Map<String, Boolean> = mutableMapOf()
+	protected lateinit var runIf: (Expression<Boolean>) -> Boolean
+
+	internal abstract fun build() : T
+
+	fun runIf(func: (expression: Expression<Boolean>) -> Boolean) {
+		runIf = func
+	}
+}
+
