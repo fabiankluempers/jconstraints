@@ -17,74 +17,71 @@
  * limitations under the License.
  */
 
-import dsl.*
-import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
-import solverComposition.dsl.*
-import solverComposition.entity.SolverRunResult
-import solverComposition.entity.Solver
-import solverComposition.entity.Time
-import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
-
-fun main() {
-	val parallelDontKnow = SolverCompositionDSL.parallelSolver {
-		solver(Solver.DONT_KNOW)
-	}
-	parallelDontKnow.solve(SMTProblem().allAssertionsAsConjunction, Valuation())
-}
-
-class DSLPlayground {
-	init {
-
-
-		val cvcSeqEval = SolverCompositionDSL.sequentialSolver {
-			solver(Solver.CVC4) {
-				timer = Time.minutes(1)
-				name = "CVC4"
-				runIf {
-					it.accept(StringOrFloatExpressionVisitor(), null)
-				}
-				continueIf { expression, result, valuation ->
-					when (result) {
-						SolverRunResult.SAT -> !expression.evaluateSMT(valuation)
-						SolverRunResult.UNSAT -> false
-						SolverRunResult.DONT_KNOW -> true
-						SolverRunResult.DID_NOT_RUN -> true
-					}
-				}
-			}
-			solver(Solver.Z3) {
-				name = "Z3"
-			}
-			finalVerdict {
-				val z3Result = it["Z3"]!!
-				val cvc4Result = it["CVC4"]!!
-				if (z3Result.ran()) z3Result.toResult() else cvc4Result.toResult()
-			}
-		}
-
-
-		val majorityVote = SolverCompositionDSL.parallelSolver {
-			solver(Solver.Z3) //adds a solver
-			solver(Solver.CVC4)
-			solver(cvcSeqEval) {
-				timer = Time.seconds(120)
-				name = "CVCSeqEval"
-				runIf {
-					true
-				}
-			}
-			//specify number of solvers that need to return a result before stopping the parallel composition.
-			waitFor(3)
-			finalVerdict { results ->
-				results
-					.map(Map.Entry<String, SolverRunResult>::value)
-					.filter(SolverRunResult::ran)
-					.groupBy { it }
-					.maxByOrNull { it.value.size }?.key?.toResult() ?: ConstraintSolver.Result.DONT_KNOW
-			}
-		}
-	}
-}
+//
+//import solverComposition.dsl.*
+//import gov.nasa.jpf.constraints.api.ConstraintSolver
+//import gov.nasa.jpf.constraints.api.Valuation
+//import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
+//import solverComposition.entity.SolverRunResult
+//import solverComposition.entity.Time
+//import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
+//
+//fun main() {
+//	val parallelDontKnow = SolverCompositionDSL.parallelSolver {
+//		solver(Solver.DONT_KNOW)
+//	}
+//	parallelDontKnow.solve(SMTProblem().allAssertionsAsConjunction, Valuation())
+//}
+//
+//class DSLPlayground {
+//	init {
+//
+//
+//		val cvcSeqEval = SolverCompositionDSL.sequentialSolver {
+//			solver(Solver.CVC4) {
+//				timer = Time.minutes(1)
+//				name = "CVC4"
+//				runIf {
+//					it.accept(StringOrFloatExpressionVisitor(), null)
+//				}
+//				continueIf { expression, result, valuation ->
+//					when (result) {
+//						SolverRunResult.SAT -> !expression.evaluateSMT(valuation)
+//						SolverRunResult.UNSAT -> false
+//						SolverRunResult.DONT_KNOW -> true
+//						SolverRunResult.DID_NOT_RUN -> true
+//					}
+//				}
+//			}
+//			solver(Solver.Z3) {
+//				name = "Z3"
+//			}
+//			finalVerdict {
+//				val z3Result = it["Z3"]!!
+//				val cvc4Result = it["CVC4"]!!
+//				if (z3Result.ran()) z3Result.toResult() else cvc4Result.toResult()
+//			}
+//		}
+//
+//		val majorityVote = SolverCompositionDSL.parallelSolver {
+//			solver(Solver.Z3) //adds a solver
+//			solver(Solver.CVC4)
+//			solver(cvcSeqEval) {
+//				timer = Time.seconds(120)
+//				name = "CVCSeqEval"
+//				runIf {
+//					true
+//				}
+//			}
+//			//specify number of solvers that need to return a result before stopping the parallel composition.
+//			waitFor(3)
+//			finalVerdict { results ->
+//				results
+//					.map(Map.Entry<String, SolverRunResult>::value)
+//					.filter(SolverRunResult::ran)
+//					.groupBy { it }
+//					.maxByOrNull { it.value.size }?.key?.toResult() ?: ConstraintSolver.Result.DONT_KNOW
+//			}
+//		}
+//	}
+//}

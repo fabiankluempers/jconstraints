@@ -19,13 +19,49 @@
 
 package solverComposition.entity
 
+import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlin.jvm.Throws
 
-class ParallelSolver: SolverComposition() {
-	private val solvers = mutableListOf<SolverComposition>()
+class ParallelComposition(
+	solvers: List<SolverWithBehaviour<ParallelBehaviour>>,
+	finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+	val waitFor: Int
+) : ConstraintSolverComposition<ParallelBehaviour>(solvers, finalVerdict) {
 
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return solvers[0].solve(f, result)
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
+		requireNotNull(f)
+		//Determine which solvers to run
+		val (activeSolvers, inactiveSolvers) = solvers.partition { it.behaviour.runIf(f) }
+
+		//Actually run solvers //TODO respect waitFor
+		runBlocking {
+			activeSolvers.forEach {
+				lateinit var solverResult: ConstraintSolver.Result
+				val valuation = Valuation()
+				try {
+					withTimeout(it.behaviour.timerDuration.toMillis()) {
+						solverResult = it.solver.solve(f, valuation)
+					}
+				} catch (e : TimeoutCancellationException) {
+					solverResult = ConstraintSolver.Result.TIMEOUT
+				}
+				finalVerdictMap[it.behaviour.identifier] = Result.fromResult(solverResult)
+			}
+		}
+
+		//Document result for inactive solvers
+		inactiveSolvers.forEach {
+			finalVerdictMap[it.behaviour.identifier] = Result.DID_NOT_RUN
+		}
+		val finalResult = finalVerdict(finalVerdictMap.toMap())
+		finalVerdictMap.clear()
+		return finalResult
 	}
+
 }

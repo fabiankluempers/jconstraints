@@ -19,13 +19,50 @@
 
 package solverComposition.entity
 
+import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlin.jvm.Throws
 
-class SequentialSolver: SolverComposition() {
-	private val solvers = mutableListOf<SolverComposition>()
+class SequentialComposition(
+	solvers: List<SolverWithBehaviour<SequentialBehaviour>>,
+	finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+) : ConstraintSolverComposition<SequentialBehaviour>(solvers, finalVerdict) {
 
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		TODO("Not yet implemented")
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
+		requireNotNull(f)
+		var isContinue: Boolean = true
+		var solverIndex: Int = 0
+		while (isContinue) {
+			val (solver, behaviour) = solvers[solverIndex]
+			if (behaviour.runIf(f)) {
+				val valuation = Valuation()
+				lateinit var solverResult: ConstraintSolver.Result
+				runBlocking {
+					try {
+						withTimeout(behaviour.timerDuration.toMillis()) {
+							solverResult = solver.solve(f, valuation)
+						}
+					} catch (e: TimeoutCancellationException) {
+						solverResult = ConstraintSolver.Result.TIMEOUT
+					}
+				}
+				finalVerdictMap[behaviour.identifier] = Result.fromResult(solverResult)
+				isContinue = behaviour.continueIf(f, Result.fromResult(solverResult), valuation)
+			} else {
+				finalVerdictMap[behaviour.identifier] = Result.DID_NOT_RUN
+			}
+			solverIndex++
+		}
+		for (i in solverIndex..solvers.size) {
+			finalVerdictMap[solvers[i].behaviour.identifier] = Result.DID_NOT_RUN
+		}
+		val finalResult = finalVerdict(finalVerdictMap.toMap())
+		finalVerdictMap.clear()
+		return finalResult
 	}
+
 }

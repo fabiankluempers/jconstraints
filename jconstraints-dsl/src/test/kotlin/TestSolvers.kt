@@ -17,22 +17,37 @@
  * limitations under the License.
  */
 
-package solverComposition.entity
-
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 
-class Solver(identifier: String): SolverComposition() {
-	private val constraintSolver: ConstraintSolver = ConstraintSolverFactory.createSolver(identifier)
-
-	//Todo respect timer
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result = constraintSolver.solve(f, result)
-
-	companion object {
-		val Z3: Solver = Solver("Z3")
-		val CVC4: Solver = Solver("CVC4")
-		val DONT_KNOW: Solver = Solver("dontKnow")
+class TestSatSolver : ConstraintSolver() {
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		return Result.SAT
 	}
+}
+
+class TestUnsatSolver : ConstraintSolver() {
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		return Result.UNSAT
+	}
+}
+
+class TestDontKnowSolver : ConstraintSolver() {
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		return Result.DONT_KNOW
+	}
+}
+
+class TestErrorSolver : ConstraintSolver() {
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		return Result.ERROR
+	}
+}
+
+class TestTimeoutSolver : ConstraintSolver() {
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		return Result.TIMEOUT
+	}
+
 }

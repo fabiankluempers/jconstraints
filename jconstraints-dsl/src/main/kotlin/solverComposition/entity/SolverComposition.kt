@@ -20,34 +20,81 @@
 package solverComposition.entity
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.api.Expression
+import gov.nasa.jpf.constraints.api.Valuation
+import java.sql.Time
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
+import kotlin.time.DurationUnit
 
-enum class SolverRunResult {
-	SAT,
-	UNSAT,
-	DONT_KNOW,
-	DID_NOT_RUN;
+abstract class ConstraintSolverBehaviour(
+	val identifier: String,
+	val featureFlags: Map<String, Boolean>,
+	val timerDuration: java.time.Duration,
+	val runIf: (Expression<Boolean>) -> Boolean,
+)
 
-	fun ran() = this != DID_NOT_RUN
-	fun toResult() = when (this) {
-		SAT -> ConstraintSolver.Result.SAT
-		UNSAT -> ConstraintSolver.Result.UNSAT
-		DONT_KNOW -> ConstraintSolver.Result.DONT_KNOW
-		DID_NOT_RUN -> throw ClassCastException("Can not convert DID_NOT_RUN constant to a ${ConstraintSolver.Result::class}.")
+class SequentialBehaviour(
+	identifier: String,
+	featureFlags: Map<String, Boolean>,
+	timerDuration: java.time.Duration,
+	runIf: (Expression<Boolean>) -> Boolean,
+	val continueIf: (Expression<Boolean>, ConstraintSolverComposition.Result, Valuation) -> Boolean,
+) : ConstraintSolverBehaviour(identifier, featureFlags, timerDuration, runIf)
+
+class ParallelBehaviour(
+	identifier: String,
+	featureFlags: Map<String, Boolean>,
+	timerDuration: java.time.Duration,
+	runIf: (Expression<Boolean>) -> Boolean,
+) : ConstraintSolverBehaviour(identifier, featureFlags, timerDuration, runIf)
+
+abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
+	val solvers: List<SolverWithBehaviour<T>>,
+	val finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+) : ConstraintSolver() {
+	protected val finalVerdictMap = mutableMapOf<String, Result>()
+
+	init {
+		require(
+			solvers
+				.groupBy { it.behaviour.identifier }
+				.values
+				.all { it.size == 1 }
+		)
+	}
+
+	enum class Result {
+		SAT,
+		UNSAT,
+		DONT_KNOW,
+		ERROR,
+		TIMEOUT,
+		DID_NOT_RUN;
+
+		fun ran() = this != DID_NOT_RUN
+
+		fun toResult() = when (this) {
+			SAT -> ConstraintSolver.Result.SAT
+			UNSAT -> ConstraintSolver.Result.UNSAT
+			DONT_KNOW -> ConstraintSolver.Result.DONT_KNOW
+			ERROR -> ConstraintSolver.Result.ERROR
+			TIMEOUT -> ConstraintSolver.Result.TIMEOUT
+			DID_NOT_RUN -> throw ClassCastException("Can not convert DID_NOT_RUN constant to a ${ConstraintSolver.Result::class}.")
+		}
+
+		companion object {
+			fun fromResult(res: ConstraintSolver.Result) = when (res) {
+				ConstraintSolver.Result.SAT -> SAT
+				ConstraintSolver.Result.UNSAT -> UNSAT
+				ConstraintSolver.Result.DONT_KNOW -> DONT_KNOW
+				ConstraintSolver.Result.TIMEOUT -> TIMEOUT
+				ConstraintSolver.Result.ERROR -> ERROR
+			}
+		}
 	}
 }
 
-data class Time(val unit: TimeUnit, val value: Int) {
-	companion object {
-		fun nanoseconds(value: Int) = Time(unit = TimeUnit.NANOSECONDS, value)
-		fun milliseconds(value: Int) = Time(unit = TimeUnit.MILLISECONDS, value)
-		fun seconds(value: Int) = Time(unit = TimeUnit.SECONDS, value)
-		fun minutes(value: Int) = Time(unit = TimeUnit.MINUTES, value)
-	}
-}
+class DuplicateSolverIdentifierException(message: String) : Exception(message)
 
-abstract class SolverComposition: ConstraintSolver() {
-	lateinit var timer: Time
-}
-
-
+data class SolverWithBehaviour<T : ConstraintSolverBehaviour>(val solver: ConstraintSolver, val behaviour: T)
