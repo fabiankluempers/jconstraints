@@ -35,28 +35,29 @@ object SolverCompositionDSL {
 
 }
 
+@DslMarker
+annotation class SolverCompositionDslMarker
+
+@SolverCompositionDslMarker
 abstract class CompositionBuilder<T : SolverBuilder<*>> {
-	protected lateinit var finalVerdict : (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result
 	internal abstract fun build() : ConstraintSolver
-	fun finalVerdict(func: (solverResults: Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result) {
-		finalVerdict = func
-	}
 
 	abstract fun solver(
-		solver: ConstraintSolver,
+		solver: String,
 		func: T.() -> Unit = {}
 	)
 }
 
+@SolverCompositionDslMarker
 abstract class  SolverBuilder <T: ConstraintSolverBehaviour>{
 	lateinit var identifier: String
-	protected val featureFlags: Map<String, Boolean> = mutableMapOf()
-	protected lateinit var runIf: (Expression<Boolean>) -> Boolean
+	protected lateinit var runIf: (List<Expression<Boolean>>) -> Boolean
 
 	internal abstract fun build() : T
 
-	fun runIf(func: (expression: Expression<Boolean>) -> Boolean) {
+	fun runIf(func: (List<Expression<Boolean>>) -> Boolean) {
 		runIf = func
 	}
 }
+
 

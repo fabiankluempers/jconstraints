@@ -19,6 +19,9 @@
 
 package gov.nasa.jpf.constraints.api;
 
+import java.util.List;
+import java.util.Map;
+
 /** Abstract superclass for constraint solvers. */
 public abstract class ConstraintSolver {
 
@@ -51,6 +54,10 @@ public abstract class ConstraintSolver {
    * @return the satisfiability {@link Result}
    */
   public abstract Result solve(Expression<Boolean> f, Valuation result);
+
+  public DSLResult dslSolve(List<Expression<Boolean>> assertions) {
+    throw new UnsupportedOperationException("Solver does not support dslSolve");
+  }
 
   /**
    * Create a solver context, which allows for incremental solving (i.e., via push and pop). This is

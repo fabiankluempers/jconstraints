@@ -18,7 +18,7 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.5.30"
+    kotlin("jvm") version "1.6.10"
     id("tools.aqua.jconstraints.java-fatjar-convention")
 }
 
@@ -37,3 +37,5 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.2")
 }
+
+

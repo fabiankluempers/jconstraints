@@ -30,40 +30,43 @@ import java.time.Duration
 import kotlin.jvm.Throws
 
 class ParallelComposition(
-	solvers: List<SolverWithBehaviour<ParallelBehaviour>>,
-	finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+	solvers: Map<String, SolverWithBehaviour<ParallelBehaviour>>,
+	val finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
 	val waitFor: Int,
-	val timerDuration: Duration,
-) : ConstraintSolverComposition<ParallelBehaviour>(solvers, finalVerdict) {
+) : ConstraintSolverComposition<ParallelBehaviour>(solvers) {
 
+	//	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
+//		requireNotNull(f)
+//		//Determine which solvers to run
+//		val (activeSolvers, inactiveSolvers) = solvers.partition { it.behaviour.runIf(f) }
+//
+//		//Actually run solvers //TODO respect waitFor
+//		runBlocking {
+//			activeSolvers.forEach {
+//				launch {
+//					lateinit var solverResult: ConstraintSolver.Result
+//					val valuation = Valuation()
+//					try {
+//						withTimeout(timerDuration.toMillis()) {
+//							solverResult = it.solver.solve(f, valuation)
+//						}
+//					} catch (e: TimeoutCancellationException) {
+//						solverResult = ConstraintSolver.Result.TIMEOUT
+//					}
+//					finalVerdictMap[it.behaviour.identifier] = Result.fromResult(solverResult)
+//				}
+//			}
+//		}
+//
+//		//Document result for inactive solvers
+//		inactiveSolvers.forEach {
+//			finalVerdictMap[it.behaviour.identifier] = Result.DID_NOT_RUN
+//		}
+//		val finalResult = finalVerdict(finalVerdictMap.toMap())
+//		finalVerdictMap.clear()
+//		return finalResult
+//	}
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
-		requireNotNull(f)
-		//Determine which solvers to run
-		val (activeSolvers, inactiveSolvers) = solvers.partition { it.behaviour.runIf(f) }
-
-		//Actually run solvers //TODO respect waitFor
-		runBlocking {
-			activeSolvers.forEach {
-				lateinit var solverResult: ConstraintSolver.Result
-				val valuation = Valuation()
-				try {
-					withTimeout(timerDuration.toMillis()) {
-						solverResult = it.solver.solve(f, valuation)
-					}
-				} catch (e : TimeoutCancellationException) {
-					solverResult = ConstraintSolver.Result.TIMEOUT
-				}
-				finalVerdictMap[it.behaviour.identifier] = Result.fromResult(solverResult)
-			}
-		}
-
-		//Document result for inactive solvers
-		inactiveSolvers.forEach {
-			finalVerdictMap[it.behaviour.identifier] = Result.DID_NOT_RUN
-		}
-		val finalResult = finalVerdict(finalVerdictMap.toMap())
-		finalVerdictMap.clear()
-		return finalResult
+		return ConstraintSolver.Result.DONT_KNOW
 	}
-
 }

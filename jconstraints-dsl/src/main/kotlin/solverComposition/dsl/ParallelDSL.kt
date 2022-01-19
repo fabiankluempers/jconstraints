@@ -20,33 +20,48 @@
 package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
+import solverComposition.entity.ConstraintSolverComposition
 import solverComposition.entity.ParallelBehaviour
 import solverComposition.entity.ParallelComposition
 import solverComposition.entity.SolverWithBehaviour
 import java.time.Duration
+import java.util.*
 
 class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder>() {
-	lateinit var timerDuration: Duration
 	private var waitFor: Int = 0
 	private val solvers = mutableListOf<SolverWithBehaviour<ParallelBehaviour>>()
+	lateinit var finalVerdict : (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result
 	override fun build(): ConstraintSolver {
 		val actualSolvers = solvers.toList()
 		solvers.clear()
 		return ParallelComposition(
-			solvers = actualSolvers,
-			finalVerdict = finalVerdict,
+			solvers = actualSolvers.associateBy { it.behaviour.identifier },
 			waitFor = waitFor,
-			timerDuration = timerDuration,
+			finalVerdict = finalVerdict,
 		)
 	}
 
-	override fun solver(solver: ConstraintSolver, func: ParallelSolverBuilder.() -> Unit) {
-		solvers.add(SolverWithBehaviour(solver, ParallelSolverBuilder().apply(func).build()))
+	fun finalVerdict(func: (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result) {
+		finalVerdict = func
+	}
+
+	override fun solver(solver: String, func: ParallelSolverBuilder.() -> Unit) {
+		val behaviour = ParallelSolverBuilder().apply(func).build()
+		solvers.add(SolverWithBehaviour(ConstraintSolverFactory.createSolver(solver, behaviour.config), behaviour))
 	}
 }
 
 class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
+	var config: Properties = Properties()
+
+	private var useContext = false
+
+	fun useContext() {
+		useContext = true
+	}
+
 	override fun build(): ParallelBehaviour {
-		return ParallelBehaviour(identifier = identifier, featureFlags = featureFlags, runIf = runIf)
+		return ParallelBehaviour(identifier = identifier, runIf = runIf, config = config, useContext = useContext)
 	}
 }

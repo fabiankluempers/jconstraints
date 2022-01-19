@@ -22,43 +22,50 @@ package solverComposition.entity
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import solverComposition.dsl.Continuation
+import solverComposition.dsl.ContinuationBuilder
+import solverComposition.dsl.ContinuationResult
 import java.sql.Time
+import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
 abstract class ConstraintSolverBehaviour(
 	val identifier: String,
-	val featureFlags: Map<String, Boolean>,
-	val runIf: (Expression<Boolean>) -> Boolean,
+	val runIf: (List<Expression<Boolean>>) -> Boolean,
+	val useContext: Boolean,
+	val config: Properties,
 )
 
 class SequentialBehaviour(
 	identifier: String,
-	featureFlags: Map<String, Boolean>,
-	runIf: (Expression<Boolean>) -> Boolean,
-	val continueIf: (Expression<Boolean>, ConstraintSolverComposition.Result, Valuation) -> Boolean,
-	val timerDuration: java.time.Duration,
-) : ConstraintSolverBehaviour(identifier, featureFlags, runIf)
+	runIf: (List<Expression<Boolean>>) -> Boolean,
+	val continuation: (List<Expression<Boolean>>, ContinuationResult, Valuation) -> ContinuationBuilder,
+	val enableUnsatCore: Boolean,
+	useContext: Boolean,
+	config: Properties,
+) : ConstraintSolverBehaviour(identifier, runIf, useContext, config)
 
 class ParallelBehaviour(
 	identifier: String,
-	featureFlags: Map<String, Boolean>,
-	runIf: (Expression<Boolean>) -> Boolean,
-) : ConstraintSolverBehaviour(identifier, featureFlags, runIf)
+	runIf: (List<Expression<Boolean>>) -> Boolean,
+	useContext: Boolean,
+	config: Properties,
+) : ConstraintSolverBehaviour(identifier, runIf, useContext, config)
 
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
-	val solvers: List<SolverWithBehaviour<T>>,
-	val finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+	val solvers: Map<String, SolverWithBehaviour<T>>,
 ) : ConstraintSolver() {
-	protected val finalVerdictMap = mutableMapOf<String, Result>()
 
 	init {
 		require(
-			solvers
-				.groupBy { it.behaviour.identifier }
-				.values
-				.all { it.size == 1 }
+			//TODO fix
+//			solvers
+//				.groupBy { it.behaviour.identifier }
+//				.values
+//				.all { it.size == 1 }
+			true
 		)
 	}
 

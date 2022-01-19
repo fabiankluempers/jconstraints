@@ -19,69 +19,156 @@
 
 package solverComposition.dsl
 
+import com.sun.org.apache.xpath.internal.operations.Bool
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
+import gov.nasa.jpf.constraints.solvers.encapsulation.messages.EnableUnsatCoreTrackingMessage
 import solverComposition.entity.ConstraintSolverComposition
 import solverComposition.entity.SequentialBehaviour
 import solverComposition.entity.SequentialComposition
 import solverComposition.entity.SolverWithBehaviour
 import java.time.Duration
+import java.util.*
 
 class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder>() {
-	private val solvers = mutableListOf<SolverWithBehaviour<SequentialBehaviour>>()
+	private val solvers = mutableMapOf<String, SolverWithBehaviour<SequentialBehaviour>>()
+	private lateinit var startWith: (assertions: List<Expression<Boolean>>) -> String
+
 	override fun build(): ConstraintSolver {
-		return SequentialComposition(solvers, finalVerdict)
+		return SequentialComposition(solvers, startWith)
 	}
 
-	override fun solver(solver: ConstraintSolver, func: SequentialSolverBuilder.() -> Unit) {
-		solvers.add(SolverWithBehaviour(solver, SequentialSolverBuilder().apply(func).build()))
+	fun startWith(func: (assertions: List<Expression<Boolean>>) -> String) {
+		startWith = func
+	}
+
+	override fun solver(solver: String, func: SequentialSolverBuilder.() -> Unit) {
+		val behaviour = SequentialSolverBuilder().apply(func).build()
+		solvers[behaviour.identifier] = SolverWithBehaviour(ConstraintSolverFactory.createSolver(solver, behaviour.config), behaviour)
 	}
 }
 
 class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
-	lateinit var timerDuration: Duration
-	private lateinit var continueIf : (Expression<Boolean>, ConstraintSolverComposition.Result, Valuation) -> Boolean
+	private lateinit var continuation: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder
+	private var useContext = false
+	private var enableUnsatCoreTracking = false
+	var config: Properties = Properties()
 
-	fun continueIf(func: (Expression<Boolean>, ConstraintSolverComposition.Result, Valuation) -> Boolean) {
-		continueIf = func
+	fun continuation(func: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder) {
+		continuation = func
+	}
+
+	fun useContext() {
+		useContext = true
+	}
+
+	fun enableUnsatCoreTracking() {
+		enableUnsatCoreTracking = true
 	}
 
 	override fun build(): SequentialBehaviour {
 		return SequentialBehaviour(
 			identifier = identifier,
-			featureFlags = featureFlags,
-			timerDuration = timerDuration,
 			runIf = runIf,
-			continueIf = continueIf,
+			continuation = continuation,
+			useContext = useContext,
+			enableUnsatCore = enableUnsatCoreTracking,
+			config = config
 		)
 	}
 }
 
-
-//region features
-
-
-fun SequentialSolverBuilder.enableFeatures(func: FeatureBlock.() -> Unit) {
+sealed class ContinuationBuilder(internal val continuation: Continuation) {
 
 }
 
-class FeatureBlock {
+class DefaultContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation)
 
-}
+object UnsatCore
 
-fun FeatureBlock.unsatCoreTracking(): UnsatCoreTrackingFeature {
-	return UnsatCoreTrackingFeature()
-}
+object NewModel
 
-class UnsatCoreTrackingFeature {
-	infix fun force(flag: Boolean) {
-
+class UnsatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation) {
+	infix fun andReplaceWith(core: UnsatCore): ContinuationBuilder {
+		return DefaultContinuationBuilder(this.continuation.copy(replaceWithCore = true))
 	}
 }
 
-
-fun FeatureBlock.negatedValuation() {
-
+class SatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation) {
+	infix fun andReplaceWith(newModel: NewModel): ContinuationBuilder {
+		return DefaultContinuationBuilder(this.continuation.copy(replaceWithNewModel = true))
+	}
 }
-//endregion
+
+sealed class ContinuationResult() {
+	abstract fun stop(): ContinuationBuilder
+}
+
+object Unsat : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): UnsatContinuationBuilder {
+		return UnsatContinuationBuilder(Continuation(ConstraintSolver.Result.UNSAT, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.UNSAT))
+}
+
+object Sat : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): SatContinuationBuilder {
+		return SatContinuationBuilder(Continuation(ConstraintSolver.Result.SAT, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.SAT))
+}
+
+object DontKnow : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
+		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW))
+}
+
+object Timeout : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
+		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.TIMEOUT, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.TIMEOUT))
+}
+
+object Error : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
+		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.ERROR, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.ERROR))
+}
+
+object DidNotRun : ContinuationResult() {
+	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
+		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW, continueMode = Continue(solverIdentifier)))
+	}
+
+	override fun stop(): ContinuationBuilder =
+		DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW))
+}
+
+data class Continuation(
+	val result: ConstraintSolver.Result,
+	val continueMode: ContinueMode = Stop,
+	val replaceWithCore: Boolean = false,
+	val replaceWithNewModel: Boolean = false,
+)
+
+sealed class ContinueMode()
+
+object Stop : ContinueMode()
+
+data class Continue(val identifer: String) : ContinueMode()
