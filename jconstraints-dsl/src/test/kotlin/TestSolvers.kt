@@ -20,34 +20,13 @@
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import kotlinx.coroutines.delay
+import java.time.Duration
 
-class TestSatSolver : ConstraintSolver() {
+class TestSolver(private val result: Result, private val duration: Duration = Duration.ofMillis(0), private val isPrinting : Boolean = false) : ConstraintSolver() {
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return Result.SAT
+		if (isPrinting) println("$this solving started. waiting for $duration")
+		if (isPrinting) println("$this solving finished. result is ${this.result}")
+		return this.result
 	}
-}
-
-class TestUnsatSolver : ConstraintSolver() {
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return Result.UNSAT
-	}
-}
-
-class TestDontKnowSolver : ConstraintSolver() {
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return Result.DONT_KNOW
-	}
-}
-
-class TestErrorSolver : ConstraintSolver() {
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return Result.ERROR
-	}
-}
-
-class TestTimeoutSolver : ConstraintSolver() {
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		return Result.TIMEOUT
-	}
-
 }

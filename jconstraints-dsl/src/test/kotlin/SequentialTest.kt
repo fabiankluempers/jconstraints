@@ -18,61 +18,46 @@
  */
 
 
-import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.expressions.Constant
+import gov.nasa.jpf.constraints.api.*
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
+import gov.nasa.jpf.constraints.smtlibUtility.parser.SMTLIBParser
+import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import solverComposition.dsl.SolverCompositionDSL
+import solverComposition.dsl.*
 import solverComposition.entity.ConstraintSolverComposition
+import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
 import java.time.Duration
+import java.util.*
+import kotlin.system.measureTimeMillis
 
-internal class SequentialTest {
-
-	private val solver = SolverCompositionDSL.sequentialComposition {
-		solver(TestSatSolver()) {
-			runIf { true }
-			continueIf { expression, solverRunResult, valuation ->
-				when (solverRunResult) {
-					ConstraintSolverComposition.Result.SAT -> true
-					else -> false
-				}
-			}
-			identifier = "TestSatSolver"
-			timerDuration = Duration.ofMillis(2000)
-		}
-		solver(TestUnsatSolver()) {
-			runIf { true }
-			continueIf { expression, solverRunResult, valuation ->
-				when (solverRunResult) {
-					ConstraintSolverComposition.Result.SAT -> true
-					else -> false
-				}
-			}
-			identifier = "TestUnsatSolver"
-			timerDuration = Duration.ofMillis(2000)
-		}
-		solver(TestUnsatSolver()) {
-			runIf { true }
-			continueIf { expression, solverRunResult, valuation ->
-				when (solverRunResult) {
-					ConstraintSolverComposition.Result.SAT -> true
-					else -> false
-				}
-			}
-			identifier = "TestUnsatSolver2"
-			timerDuration = Duration.ofMillis(2000)
-		}
-		finalVerdict {
-			it["TestUnsatSolver"]?.toResult() ?: ConstraintSolver.Result.DONT_KNOW
-		}
-	}
-
-	@Test
-	fun testSolver() {
-		assertEquals(solver.solve(SMTProblem().allAssertionsAsConjunction, Valuation()), ConstraintSolver.Result.UNSAT)
-
-	}
+fun main() {
+	println(measureTimeMillis { ConstraintSolverFactory.createSolver("seqtest").apply {
+		println(dslSolve(problem3.assertions).valuation)
+		println(dslSolve(problem4.assertions).valuation)
+		solve(problem3.allAssertionsAsConjunction, Valuation())
+		solve(problem4.allAssertionsAsConjunction, Valuation())
+	} })
 }
+
+val problem3: SMTProblem = SMTLIBParser.parseSMTProgram(
+	"""
+			(declare-fun A () Int)
+			(declare-fun B () Int)
+			(declare-fun C () Int)
+			(assert (= A B))
+			(assert (> A B))
+			(assert (> C A))
+			(assert (= C 5))
+			(check-sat)
+		""".trimIndent()
+)
+
+val problem4: SMTProblem = SMTLIBParser.parseSMTProgram(
+	"""
+	(declare-fun A () Int)
+	(declare-fun B () Int)
+	(assert (= A B))
+	(assert (= A 5))
+""".trimIndent()
+)

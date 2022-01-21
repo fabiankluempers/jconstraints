@@ -19,54 +19,81 @@
 
 package solverComposition.entity
 
-import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import java.time.Duration
-import kotlin.jvm.Throws
+import gov.nasa.jpf.constraints.api.*
+import gov.nasa.jpf.constraints.util.ExpressionUtil
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import kotlin.math.min
 
 class ParallelComposition(
 	solvers: Map<String, SolverWithBehaviour<ParallelBehaviour>>,
-	val finalVerdict: (solverResults: Map<String, Result>) -> ConstraintSolver.Result,
+	val finalVerdict: (solverResults: Map<String, DSLResult>) -> DSLResult,
 	val waitFor: Int,
 ) : ConstraintSolverComposition<ParallelBehaviour>(solvers) {
-
-	//	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
-//		requireNotNull(f)
-//		//Determine which solvers to run
-//		val (activeSolvers, inactiveSolvers) = solvers.partition { it.behaviour.runIf(f) }
-//
-//		//Actually run solvers //TODO respect waitFor
-//		runBlocking {
-//			activeSolvers.forEach {
-//				launch {
-//					lateinit var solverResult: ConstraintSolver.Result
-//					val valuation = Valuation()
-//					try {
-//						withTimeout(timerDuration.toMillis()) {
-//							solverResult = it.solver.solve(f, valuation)
-//						}
-//					} catch (e: TimeoutCancellationException) {
-//						solverResult = ConstraintSolver.Result.TIMEOUT
-//					}
-//					finalVerdictMap[it.behaviour.identifier] = Result.fromResult(solverResult)
-//				}
-//			}
-//		}
-//
-//		//Document result for inactive solvers
-//		inactiveSolvers.forEach {
-//			finalVerdictMap[it.behaviour.identifier] = Result.DID_NOT_RUN
-//		}
-//		val finalResult = finalVerdict(finalVerdictMap.toMap())
-//		finalVerdictMap.clear()
-//		return finalResult
-//	}
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
 		return ConstraintSolver.Result.DONT_KNOW
+	}
+
+	override fun dslSolve(assertions: MutableList<Expression<Boolean>>?): DSLResult {
+		val actualAssertions = assertions?.toList() ?: listOf()
+		val activeSolvers = solvers.values.filter { it.behaviour.runIf(actualAssertions) }
+		val latch = CountDownLatch(min(activeSolvers.size, waitFor))
+		val workers = activeSolvers.map { Worker(it, actualAssertions, latch) }
+		val exec = Executors.newFixedThreadPool(activeSolvers.size)
+		val results = workers.map { exec.submit(it) }
+		val resultMap = mutableMapOf<String, DSLResult>()
+		latch.await()
+		results.forEach {
+			if (it.isDone) {
+				val result = it.get()
+				resultMap[result.first] = result.second
+			} else {
+				it.cancel(true)
+			}
+		}
+		exec.shutdown()
+		return finalVerdict(resultMap.toMap())
+	}
+
+	inner class Worker(
+		private val solver: SolverWithBehaviour<ParallelBehaviour>,
+		private val assertions: List<Expression<Boolean>>,
+		private val latch: CountDownLatch
+	) : Callable<Pair<String, DSLResult>> {
+		override fun call(): Pair<String, DSLResult> {
+			println("Starting solver ${solver.behaviour.identifier}")
+			val behaviour = solver.behaviour
+			if (behaviour.useContext) {
+				val ctx: SolverContext = try {
+					solver.solver.createContext()
+				} catch (e: UnsupportedOperationException) {
+					println("The solver ${solver.behaviour.identifier} does not support context. Stopping with ERROR")
+					return solver.behaviour.identifier to DSLResult(
+						Result.ERROR,
+						Valuation()
+					).also { latch.countDown() }
+				}
+				ctx.add(assertions)
+				val valuation = Valuation()
+				return solver.behaviour.identifier to DSLResult(
+					ctx.solve(valuation),
+					valuation
+				).also { latch.countDown() }
+			} else {
+				val result : DSLResult = try {
+					solver.solver.dslSolve(assertions)
+				} catch (e : UnsupportedOperationException) {
+					println("The solver ${solver.behaviour.identifier} does not support dslSolve. Falling back to solve")
+					val valuation = Valuation()
+					return solver.behaviour.identifier to DSLResult(
+						solver.solver.solve(ExpressionUtil.and(assertions), valuation),
+						valuation
+					).also { latch.countDown() }
+				}
+				return (solver.behaviour.identifier to result).also { latch.countDown() }
+			}
+		}
+
 	}
 }

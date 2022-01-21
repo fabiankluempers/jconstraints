@@ -49,6 +49,7 @@ public final class ConstraintSolverFactory {
 
   static {
     discoverProviders();
+    System.out.println(providers.keySet().toString());
   }
 
   /**

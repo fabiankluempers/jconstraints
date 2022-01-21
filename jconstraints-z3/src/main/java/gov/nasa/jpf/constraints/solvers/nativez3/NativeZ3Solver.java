@@ -128,6 +128,18 @@ public class NativeZ3Solver extends ConstraintSolver
     }
   }
 
+  //  @Override
+  //  public DSLResult dslSolve(final List<Expression<Boolean>> assertions) {
+  //    try {
+  //      defaultContext.push();
+  //      defaultContext.add(assertions);
+  //      Valuation valuation = new Valuation();
+  //      return new DSLResult(defaultContext.solve(valuation), valuation);
+  //    } finally {
+  //      defaultContext.pop();
+  //    }
+  //  }
+
   @Override
   public NativeZ3SolverContext createContext() {
     Solver solver = null;

@@ -19,17 +19,13 @@
 
 package solverComposition.dsl
 
-import com.sun.org.apache.xpath.internal.operations.Bool
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import gov.nasa.jpf.constraints.solvers.encapsulation.messages.EnableUnsatCoreTrackingMessage
-import solverComposition.entity.ConstraintSolverComposition
 import solverComposition.entity.SequentialBehaviour
 import solverComposition.entity.SequentialComposition
 import solverComposition.entity.SolverWithBehaviour
-import java.time.Duration
 import java.util.*
 
 class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder>() {

@@ -18,11 +18,6 @@
  */
 
 
-import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import solverComposition.dsl.*
-import java.time.Duration
-
 //
 //import solverComposition.dsl.*
 //import gov.nasa.jpf.constraints.api.ConstraintSolver
@@ -90,4 +85,61 @@ import java.time.Duration
 //			}
 //		}
 //	}
+//}
+
+//fun main() {
+//	continuation { result, valuation, expression ->
+//		when (result) {
+//			is Unsat -> result continueWith "z3" andReplaceExpressionWith UnsatCore
+//			is Sat -> {
+//				if (expression.evaluateSMT(valuation))
+//					result continueWith "CVC4"
+//				else
+//					result continueWith "z3" andReplaceExpressionWith NewModel
+//			}
+//			is DontKnow -> result continueWith "z3"
+//			else -> result.stop()
+//		}
+//	}
+//}
+//
+//sealed class Result() {
+//	abstract fun stop()
+//}
+//
+//class BB
+//
+//object UnsatCore
+//
+//class BBB {
+//	infix fun andReplaceExpressionWith(unsatCore: UnsatCore) = Unit
+//}
+//
+//class Unsat : Result() {
+//	infix fun continueWith(bb: String) = BBB()
+//	override fun stop() = Unit
+//}
+//
+//class Sat : Result() {
+//	infix fun continueWith(cc: String) = CCC()
+//	override fun stop() = Unit
+//}
+//
+//object NewModel
+//
+//class CCC {
+//	infix fun andReplaceExpressionWith(newModel: NewModel) = Unit
+//}
+//
+//fun continuation(func: (Result, Valuation, Expression<Boolean>) -> Unit) {
+//
+//}
+//
+//class DontKnow : Result() {
+//	infix fun continueWith(cc: String) = Unit
+//	override fun stop() = Unit
+//}
+//
+//class Error : Result() {
+//	override fun stop() = Unit
 //}

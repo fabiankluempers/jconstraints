@@ -20,6 +20,7 @@
 package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.api.DSLResult
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 import solverComposition.entity.ConstraintSolverComposition
 import solverComposition.entity.ParallelBehaviour
@@ -31,7 +32,7 @@ import java.util.*
 class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder>() {
 	private var waitFor: Int = 0
 	private val solvers = mutableListOf<SolverWithBehaviour<ParallelBehaviour>>()
-	lateinit var finalVerdict : (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result
+	lateinit var finalVerdict : (Map<String, DSLResult>) -> DSLResult
 	override fun build(): ConstraintSolver {
 		val actualSolvers = solvers.toList()
 		solvers.clear()
@@ -42,7 +43,11 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder>() {
 		)
 	}
 
-	fun finalVerdict(func: (Map<String, ConstraintSolverComposition.Result>) -> ConstraintSolver.Result) {
+	fun waitFor(int: Int) {
+		waitFor = int
+	}
+
+	fun finalVerdict(func: (Map<String, DSLResult>) -> DSLResult) {
 		finalVerdict = func
 	}
 

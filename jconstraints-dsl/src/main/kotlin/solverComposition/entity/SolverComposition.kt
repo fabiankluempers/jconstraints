@@ -28,6 +28,8 @@ import solverComposition.dsl.ContinuationResult
 import java.sql.Time
 import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
@@ -57,6 +59,7 @@ class ParallelBehaviour(
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 	val solvers: Map<String, SolverWithBehaviour<T>>,
 ) : ConstraintSolver() {
+	protected val logger: Logger = Logger.getLogger("jconstraints dsl")
 
 	init {
 		require(
@@ -69,34 +72,11 @@ abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 		)
 	}
 
-	enum class Result {
-		SAT,
-		UNSAT,
-		DONT_KNOW,
-		ERROR,
-		TIMEOUT,
-		DID_NOT_RUN;
-
-		fun ran() = this != DID_NOT_RUN
-
-		fun toResult() = when (this) {
-			SAT -> ConstraintSolver.Result.SAT
-			UNSAT -> ConstraintSolver.Result.UNSAT
-			DONT_KNOW -> ConstraintSolver.Result.DONT_KNOW
-			ERROR -> ConstraintSolver.Result.ERROR
-			TIMEOUT -> ConstraintSolver.Result.TIMEOUT
-			DID_NOT_RUN -> throw ClassCastException("Can not convert DID_NOT_RUN constant to a ${ConstraintSolver.Result::class}.")
-		}
-
-		companion object {
-			fun fromResult(res: ConstraintSolver.Result) = when (res) {
-				ConstraintSolver.Result.SAT -> SAT
-				ConstraintSolver.Result.UNSAT -> UNSAT
-				ConstraintSolver.Result.DONT_KNOW -> DONT_KNOW
-				ConstraintSolver.Result.TIMEOUT -> TIMEOUT
-				ConstraintSolver.Result.ERROR -> ERROR
-			}
-		}
+	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
+		logger.log(Level.INFO, "The solve method won't produce useful unsat cores in this composition. Use dslSolve if any of the solvers contained in this composition have unsatCoreTracking enabled.")
+		val dslResult = dslSolve(mutableListOf(f))
+		result?.putAll(dslResult.valuation)
+		return dslResult.result
 	}
 }
 

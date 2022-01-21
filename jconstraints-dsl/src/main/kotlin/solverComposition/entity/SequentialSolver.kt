@@ -19,19 +19,11 @@
 
 package solverComposition.entity
 
-import com.sun.org.slf4j.internal.LoggerFactory
 import gov.nasa.jpf.constraints.api.*
-import gov.nasa.jpf.constraints.expressions.LogicalOperator
-import gov.nasa.jpf.constraints.expressions.Negation
-import gov.nasa.jpf.constraints.expressions.NumericBooleanExpression
-import gov.nasa.jpf.constraints.expressions.PropositionalCompound
 import gov.nasa.jpf.constraints.util.ExpressionUtil
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import solverComposition.dsl.*
-import java.lang.Error
-import kotlin.jvm.Throws
+import java.util.logging.Level
+
 
 class SequentialComposition(
 	solvers: Map<String, SolverWithBehaviour<SequentialBehaviour>>,
@@ -75,28 +67,24 @@ class SequentialComposition(
 //		finalVerdictMap.clear()
 //		return finalResult
 //	}
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
-		return ConstraintSolver.Result.DONT_KNOW
-	}
 
 	override fun dslSolve(assertions: MutableList<Expression<Boolean>>?): DSLResult {
 		var actualAssertions = assertions?.toList() ?: listOf()
 		var currentSolver = solvers[startWith(assertions?.toList() ?: listOf())]
-		checkNotNull(currentSolver) { "startWith returned a solver identifier that is not valid in this composition" }
+		checkNotNull(currentSolver) { "startWith in $this returned a solver identifier that is not valid in this composition" }
 		while (true) {
 			var isUnsatCore = false
-			checkNotNull(currentSolver) { "continuation returned a solver identifier that is not valid in this composition" }
+			checkNotNull(currentSolver) { "continuation in $this returned a solver identifier that is not valid in this composition" }
 			val behaviour = currentSolver.behaviour
-			println("starting solver ${currentSolver.behaviour.identifier}")
-			var dslResult = Result.DID_NOT_RUN
-			lateinit var actualResult: ConstraintSolver.Result
+			var continuationResult: ContinuationResult = DidNotRun
+			lateinit var actualResult: Result
 			var valuation = Valuation()
 			if (behaviour.useContext) {
 				val ctx: SolverContext = try {
 					currentSolver.solver.createContext()
 				} catch (e: UnsupportedOperationException) {
-					println("The solver ${currentSolver.behaviour.identifier} does not support context. Stopping with ERROR")
-					return DSLResult(ConstraintSolver.Result.ERROR, Valuation())
+					logger.log(Level.WARNING, "The solver with the identifier ${behaviour.identifier} in $this does not support context. Stopping with ERROR")
+					return DSLResult(Result.ERROR, Valuation())
 				}
 
 				if (behaviour.enableUnsatCore) {
@@ -104,16 +92,16 @@ class SequentialComposition(
 						ctx.enableUnsatTracking()
 						isUnsatCore = true
 					} else {
-						println("The solver ${currentSolver.behaviour.identifier} does not support unsat core feature. Stopping with ERROR")
-						return DSLResult(ConstraintSolver.Result.ERROR, Valuation())
+						logger.log(Level.WARNING, "The solver with the identifier ${behaviour.identifier} in $this does not support unsat core tracking. Stopping with ERROR")
+						return DSLResult(Result.ERROR, Valuation())
 					}
 				}
 				if (behaviour.runIf(actualAssertions)) {
 					ctx.add(actualAssertions)
 					actualResult = ctx.solve(valuation)
-					dslResult = Result.fromResult(actualResult)
+					continuationResult = actualResult.toDslResult()
 				}
-				val continuation = determineContinuation(behaviour.continuation, dslResult, actualAssertions, valuation)
+				val continuation = behaviour.continuation(actualAssertions, continuationResult, valuation).continuation
 				when (continuation.continueMode) {
 					is Continue -> {
 						if (continuation.replaceWithCore) {
@@ -121,7 +109,7 @@ class SequentialComposition(
 								actualAssertions = (ctx as UNSATCoreSolver).unsatCore
 								//TODO check if empty?
 							} else {
-								println("Continuation of the solver ${currentSolver.behaviour.identifier} tried to replace wit unsat core but solver does not support it. Continuing with original assertions")
+								logger.log(Level.WARNING,"Continuation of the solver with the identifier ${behaviour.identifier} in $this tried to replace with unsat core but solver is not enabled for unsat core tracking or does not support it. Continuing with original assertions")
 							}
 						}
 						if (continuation.replaceWithNewModel) {
@@ -137,25 +125,28 @@ class SequentialComposition(
 				val solver = currentSolver.solver
 				if (behaviour.enableUnsatCore) {
 					if (solver is UNSATCoreSolver) {
+						logger.log(Level.WARNING, """The solver with the identifier ${behaviour.identifier} in 
+							$this has unsat core tracking enabled but does not use context. 
+							The obtained unsat core is probably the same as the input""".trimMargin())
 						solver.enableUnsatTracking()
 						isUnsatCore = true
 					} else {
-						println("The solver ${currentSolver.behaviour.identifier} does not support unsat core feature. Stopping with ERROR")
-						return DSLResult(ConstraintSolver.Result.ERROR, Valuation())
+						logger.log(Level.WARNING, """The solver with the identifier ${behaviour.identifier} in $this 
+							does not support unsat core tracking. Stopping with ERROR""".trimIndent())
+						return DSLResult(Result.ERROR, Valuation())
 					}
 				}
 				if (behaviour.runIf(actualAssertions)) {
-					val dslSolveResult: DSLResult = try {
+					val dslSolveResult: DSLResult = if (solver is ConstraintSolverComposition<*>) {
 						solver.dslSolve(actualAssertions)
-					} catch (e: UnsupportedOperationException) {
-						println("The solver ${currentSolver.behaviour.identifier} does not support dslSolve. Falling back to solve")
+					} else {
 						DSLResult(solver.solve(ExpressionUtil.and(actualAssertions), valuation), valuation)
 					}
 					actualResult = dslSolveResult.result
-					dslResult = Result.fromResult(dslSolveResult.result)
+					continuationResult = actualResult.toDslResult()
 					valuation = dslSolveResult.valuation
 				}
-				val continuation = determineContinuation(behaviour.continuation, dslResult, actualAssertions, valuation)
+				val continuation = behaviour.continuation(actualAssertions, continuationResult, valuation).continuation
 				when (continuation.continueMode) {
 					is Continue -> {
 						if (continuation.replaceWithCore) {
@@ -163,7 +154,10 @@ class SequentialComposition(
 								actualAssertions = (solver as UNSATCoreSolver).unsatCore
 								//TODO check if empty?
 							} else {
-								println("Continuation of the solver ${currentSolver.behaviour.identifier} tried to replace wit unsat core but solver does not support it. Continuing with original assertions")
+								logger.log(Level.WARNING,"""Continuation of the solver with the identifier 
+									${behaviour.identifier} in $this tried to replace with unsat core but solver is not 
+									enabled for unsat core tracking or does not support it. 
+									Continuing with original assertions""".trimIndent())
 							}
 						}
 						if (continuation.replaceWithNewModel) {
@@ -179,18 +173,12 @@ class SequentialComposition(
 		}
 	}
 
-	private fun determineContinuation(
-		continuation: ((List<Expression<Boolean>>, ContinuationResult, Valuation) -> ContinuationBuilder),
-		res: Result,
-		assertions: List<Expression<Boolean>>,
-		valuation: Valuation
-	) = when (res) {
-		Result.SAT -> continuation(assertions, Sat, valuation)
-		Result.UNSAT -> continuation(assertions, Unsat, valuation)
-		Result.DONT_KNOW -> continuation(assertions, DontKnow, valuation)
-		Result.ERROR -> continuation(assertions, Error, valuation)
-		Result.TIMEOUT -> continuation(assertions, Timeout, valuation)
-		Result.DID_NOT_RUN -> continuation(assertions, DidNotRun, valuation)
-	}.continuation
-
+	private fun Result.toDslResult() =
+		when (this) {
+			Result.SAT -> Sat
+			Result.UNSAT -> Unsat
+			Result.DONT_KNOW -> DontKnow
+			Result.TIMEOUT -> Timeout
+			Result.ERROR -> Error
+		}
 }
