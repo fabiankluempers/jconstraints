@@ -20,7 +20,6 @@
 package gov.nasa.jpf.constraints.api;
 
 import java.util.List;
-import java.util.Map;
 
 /** Abstract superclass for constraint solvers. */
 public abstract class ConstraintSolver {

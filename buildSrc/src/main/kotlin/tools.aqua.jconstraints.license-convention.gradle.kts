@@ -17,23 +17,23 @@
  * limitations under the License.
  */
 
-import java.time.LocalDateTime.now
+import java.time.LocalDate
 
 plugins {
-    id("org.cadixdev.licenser")
+	id("org.cadixdev.licenser")
 }
 
 license {
-    header = rootProject.file("contrib/license-header.txt")
-    ext["year"] = now().year
+	header = rootProject.file("contrib/license-header.txt")
+	ext["year"] = LocalDate.of(2021, 1, 1).year
 
-    exclude("**/META-INF/services/**/*") // ServiceLoader
-    exclude("**/*.g", "**/*.tokens") // ANTLR
-    exclude("**/*.smt", "**/*.smt2") // SMT problems
+	exclude("**/META-INF/services/**/*") // ServiceLoader
+	exclude("**/*.g", "**/*.tokens") // ANTLR
+	exclude("**/*.smt", "**/*.smt2") // SMT problems
 
-    tasks {
-        create("buildFiles") {
-            files = project.files("build.gradle.kts", "settings.gradle.kts")
-        }
-    }
+	tasks {
+		create("buildFiles") {
+			files = project.files("build.gradle.kts", "settings.gradle.kts")
+		}
+	}
 }
