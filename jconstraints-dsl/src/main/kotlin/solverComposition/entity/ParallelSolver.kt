@@ -31,12 +31,11 @@ class ParallelComposition(
 	val finalVerdict: (solverResults: Map<String, DSLResult>) -> DSLResult,
 	val waitFor: Int,
 ) : ConstraintSolverComposition<ParallelBehaviour>(solvers) {
-	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
-		return ConstraintSolver.Result.DONT_KNOW
-	}
 
-	override fun dslSolve(assertions: MutableList<Expression<Boolean>>?): DSLResult {
-		val actualAssertions = assertions?.toList() ?: listOf()
+	override fun createContext(): SolverContext = CompositionContext(this)
+
+	override fun dslSolve(assertions: List<Expression<Boolean>>): DSLResult {
+		val actualAssertions = assertions
 		val activeSolvers = solvers.values.filter { it.behaviour.runIf(actualAssertions) }
 		val latch = CountDownLatch(min(activeSolvers.size, waitFor))
 		val workers = activeSolvers.map { Worker(it, actualAssertions, latch) }
@@ -79,21 +78,15 @@ class ParallelComposition(
 				return solver.behaviour.identifier to DSLResult(
 					ctx.solve(valuation),
 					valuation
-				).also { latch.countDown() }
+				).also { ctx.dispose(); latch.countDown() }
 			} else {
-				val result : DSLResult = try {
-					solver.solver.dslSolve(assertions)
-				} catch (e : UnsupportedOperationException) {
-					println("The solver ${solver.behaviour.identifier} does not support dslSolve. Falling back to solve")
-					val valuation = Valuation()
-					return solver.behaviour.identifier to DSLResult(
-						solver.solver.solve(ExpressionUtil.and(assertions), valuation),
-						valuation
-					).also { latch.countDown() }
-				}
-				return (solver.behaviour.identifier to result).also { latch.countDown() }
+				val valuation = Valuation()
+				return solver.behaviour.identifier to DSLResult(
+					solver.solver.solve(ExpressionUtil.and(assertions), valuation),
+					valuation
+				).also { latch.countDown() }
 			}
 		}
-
 	}
 }
+

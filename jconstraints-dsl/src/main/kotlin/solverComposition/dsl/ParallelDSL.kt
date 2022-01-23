@@ -20,13 +20,11 @@
 package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.DSLResult
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import solverComposition.entity.ConstraintSolverComposition
+import solverComposition.entity.DSLResult
 import solverComposition.entity.ParallelBehaviour
 import solverComposition.entity.ParallelComposition
 import solverComposition.entity.SolverWithBehaviour
-import java.time.Duration
 import java.util.*
 
 class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder>() {

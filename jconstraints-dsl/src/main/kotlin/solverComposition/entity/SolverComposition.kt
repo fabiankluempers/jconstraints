@@ -21,17 +21,13 @@ package solverComposition.entity
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
+import gov.nasa.jpf.constraints.api.SolverContext
 import gov.nasa.jpf.constraints.api.Valuation
-import solverComposition.dsl.Continuation
 import solverComposition.dsl.ContinuationBuilder
 import solverComposition.dsl.ContinuationResult
-import java.sql.Time
 import java.util.*
-import java.util.concurrent.TimeUnit
 import java.util.logging.Level
 import java.util.logging.Logger
-import kotlin.time.Duration
-import kotlin.time.DurationUnit
 
 abstract class ConstraintSolverBehaviour(
 	val identifier: String,
@@ -56,6 +52,8 @@ class ParallelBehaviour(
 	config: Properties,
 ) : ConstraintSolverBehaviour(identifier, runIf, useContext, config)
 
+data class DSLResult(val result: ConstraintSolver.Result, val valuation: Valuation)
+
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 	val solvers: Map<String, SolverWithBehaviour<T>>,
 ) : ConstraintSolver() {
@@ -72,11 +70,49 @@ abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 		)
 	}
 
+	abstract fun dslSolve(assertions: List<Expression<Boolean>>): solverComposition.entity.DSLResult
+
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
 		logger.log(Level.INFO, "The solve method won't produce useful unsat cores in this composition. Use dslSolve if any of the solvers contained in this composition have unsatCoreTracking enabled.")
-		val dslResult = dslSolve(mutableListOf(f))
+		val dslResult = dslSolve(listOf(f ?: throw IllegalArgumentException("f should not be null")))
 		result?.putAll(dslResult.valuation)
 		return dslResult.result
+	}
+}
+
+class CompositionContext(private val comp: ConstraintSolverComposition<*>) : SolverContext() {
+	val assertionStack : MutableList<MutableList<Expression<Boolean>>> = mutableListOf(mutableListOf())
+
+	override fun push() {
+		assertionStack.add(mutableListOf())
+	}
+
+	override fun pop(n: Int) {
+		repeat(n) {
+			assertionStack.removeLastOrNull()
+		}
+		if (assertionStack.isEmpty()) {
+			assertionStack.add(mutableListOf())
+		}
+	}
+
+	override fun solve(`val`: Valuation?): ConstraintSolver.Result {
+		with(comp.dslSolve(assertionStack.flatten())) {
+			`val`?.putAll(valuation)
+			return result
+		}
+	}
+
+	override fun add(expressions: MutableList<Expression<Boolean>>?) {
+		if (expressions != null) {
+			assertionStack.last().addAll(expressions)
+		}
+
+	}
+
+	override fun dispose() {
+		assertionStack.clear()
+		assertionStack.add(mutableListOf())
 	}
 }
 

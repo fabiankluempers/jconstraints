@@ -32,12 +32,20 @@ import java.util.*
 import kotlin.system.measureTimeMillis
 
 fun main() {
-	println(measureTimeMillis { ConstraintSolverFactory.createSolver("seqtest").apply {
-		println(dslSolve(problem3.assertions).valuation)
-		println(dslSolve(problem4.assertions).valuation)
+	println(measureTimeMillis { (ConstraintSolverFactory.createSolver("seqtest").apply {
+		val ctx = createContext()
+		println(ctx.add(problem3.assertions))
+		val valuation = Valuation()
+		println(ctx.solve(valuation))
+		println(valuation)
+		ctx.dispose()
+		ctx.add(problem4.assertions)
+		println(ctx.solve(valuation))
+		ctx.dispose()
+		println(valuation)
 		solve(problem3.allAssertionsAsConjunction, Valuation())
 		solve(problem4.allAssertionsAsConjunction, Valuation())
-	} })
+	})})
 }
 
 val problem3: SMTProblem = SMTLIBParser.parseSMTProgram(

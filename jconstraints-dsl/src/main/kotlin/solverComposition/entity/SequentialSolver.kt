@@ -68,9 +68,11 @@ class SequentialComposition(
 //		return finalResult
 //	}
 
-	override fun dslSolve(assertions: MutableList<Expression<Boolean>>?): DSLResult {
-		var actualAssertions = assertions?.toList() ?: listOf()
-		var currentSolver = solvers[startWith(assertions?.toList() ?: listOf())]
+	override fun createContext(): SolverContext = CompositionContext(this)
+
+	override fun dslSolve(assertions: List<Expression<Boolean>>): DSLResult {
+		var actualAssertions = assertions
+		var currentSolver = solvers[startWith(actualAssertions)]
 		checkNotNull(currentSolver) { "startWith in $this returned a solver identifier that is not valid in this composition" }
 		while (true) {
 			var isUnsatCore = false
@@ -100,6 +102,7 @@ class SequentialComposition(
 					ctx.add(actualAssertions)
 					actualResult = ctx.solve(valuation)
 					continuationResult = actualResult.toDslResult()
+					ctx.dispose()
 				}
 				val continuation = behaviour.continuation(actualAssertions, continuationResult, valuation).continuation
 				when (continuation.continueMode) {
@@ -137,11 +140,7 @@ class SequentialComposition(
 					}
 				}
 				if (behaviour.runIf(actualAssertions)) {
-					val dslSolveResult: DSLResult = if (solver is ConstraintSolverComposition<*>) {
-						solver.dslSolve(actualAssertions)
-					} else {
-						DSLResult(solver.solve(ExpressionUtil.and(actualAssertions), valuation), valuation)
-					}
+					val dslSolveResult = DSLResult(solver.solve(ExpressionUtil.and(actualAssertions), valuation), valuation)
 					actualResult = dslSolveResult.result
 					continuationResult = actualResult.toDslResult()
 					valuation = dslSolveResult.valuation
