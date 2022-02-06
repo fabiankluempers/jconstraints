@@ -26,47 +26,9 @@ import java.util.logging.Level
 
 
 class SequentialComposition(
-	solvers: Map<String, SolverWithBehaviour<SequentialBehaviour>>,
-	val startWith: (assertions: List<Expression<Boolean>>) -> String
+	solvers: List<SolverWithBehaviour<SequentialBehaviour>>,
+	private val startWith: (assertions: List<Expression<Boolean>>) -> String
 ) : ConstraintSolverComposition<SequentialBehaviour>(solvers) {
-
-	//	override fun solve(f: Expression<Boolean>?, result: Valuation?): ConstraintSolver.Result {
-//		requireNotNull(f)
-//		var isContinue: Boolean = true
-//		var solverIndex: Int = 0
-//		while (isContinue) {
-//			val (solver, behaviour) = solvers[solverIndex]
-//			//determine if solver should be executed
-//			if (behaviour.runIf(f)) {
-//				val valuation = Valuation()
-//				lateinit var solverResult: ConstraintSolver.Result
-//				//execute solver with timeout
-//				runBlocking {
-//					try {
-//						withTimeout(behaviour.timerDuration.toMillis()) {
-//							solverResult = solver.solve(f, valuation)
-//						}
-//					} catch (e: TimeoutCancellationException) {
-//						solverResult = ConstraintSolver.Result.TIMEOUT
-//					}
-//				}
-//				//write result
-//				finalVerdictMap[behaviour.identifier] = Result.fromResult(solverResult)
-//				isContinue = behaviour.continueIf(f, Result.fromResult(solverResult), valuation)
-//			} else {
-//				finalVerdictMap[behaviour.identifier] = Result.DID_NOT_RUN
-//			}
-//			solverIndex++
-//		}
-//		//write result for remaining solvers, that won't get executed
-//		for (i in solverIndex until solvers.size) {
-//			finalVerdictMap[solvers[i].behaviour.identifier] = Result.DID_NOT_RUN
-//		}
-//		//calculate finalVerdict
-//		val finalResult = finalVerdict(finalVerdictMap.toMap())
-//		finalVerdictMap.clear()
-//		return finalResult
-//	}
 
 	override fun createContext(): SolverContext = CompositionContext(this)
 
@@ -82,13 +44,7 @@ class SequentialComposition(
 			lateinit var actualResult: Result
 			var valuation = Valuation()
 			if (behaviour.useContext) {
-				val ctx: SolverContext = try {
-					currentSolver.solver.createContext()
-				} catch (e: UnsupportedOperationException) {
-					logger.log(Level.WARNING, "The solver with the identifier ${behaviour.identifier} in $this does not support context. Stopping with ERROR")
-					return DSLResult(Result.ERROR, Valuation())
-				}
-
+				val ctx: SolverContext = currentSolver.solver.createContext()
 				if (behaviour.enableUnsatCore) {
 					if (ctx is UNSATCoreSolver) {
 						ctx.enableUnsatTracking()
@@ -102,7 +58,6 @@ class SequentialComposition(
 					ctx.add(actualAssertions)
 					actualResult = ctx.solve(valuation)
 					continuationResult = actualResult.toDslResult()
-					ctx.dispose()
 				}
 				val continuation = behaviour.continuation(actualAssertions, continuationResult, valuation).continuation
 				when (continuation.continueMode) {
@@ -118,12 +73,13 @@ class SequentialComposition(
 						if (continuation.replaceWithNewModel) {
 							//TODO new model
 						}
-						currentSolver = solvers[continuation.continueMode.identifer]
+						currentSolver = solvers[continuation.continueMode.identifier]
 					}
 					is Stop -> {
-						return DSLResult(actualResult, valuation)
+						return DSLResult(continuation.result, valuation)
 					}
 				}
+				ctx.dispose()
 			} else {
 				val solver = currentSolver.solver
 				if (behaviour.enableUnsatCore) {
@@ -162,10 +118,10 @@ class SequentialComposition(
 						if (continuation.replaceWithNewModel) {
 							//TODO new model
 						}
-						currentSolver = solvers[continuation.continueMode.identifer]
+						currentSolver = solvers[continuation.continueMode.identifier]
 					}
 					is Stop -> {
-						return DSLResult(actualResult, valuation)
+						return DSLResult(continuation.result, valuation)
 					}
 				}
 			}

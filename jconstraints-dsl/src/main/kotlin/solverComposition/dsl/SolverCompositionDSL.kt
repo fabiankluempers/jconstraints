@@ -39,8 +39,10 @@ object SolverCompositionDSL {
 annotation class SolverCompositionDslMarker
 
 @SolverCompositionDslMarker
-abstract class CompositionBuilder<T : SolverBuilder<*>> {
+abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
 	internal abstract fun build() : ConstraintSolver
+
+	abstract fun dslSolver(func: R.() -> Unit = {})
 
 	abstract fun solver(
 		solver: String,
@@ -49,11 +51,11 @@ abstract class CompositionBuilder<T : SolverBuilder<*>> {
 }
 
 @SolverCompositionDslMarker
-abstract class  SolverBuilder <T: ConstraintSolverBehaviour>{
+abstract class  SolverBuilder <T : ConstraintSolverBehaviour> {
 	lateinit var identifier: String
-	protected lateinit var runIf: (List<Expression<Boolean>>) -> Boolean
+	internal var runIf: (assertions: List<Expression<Boolean>>) -> Boolean = { true }
 
-	internal abstract fun build() : T
+	internal abstract fun build(provIdentifier: String? = null) : SolverWithBehaviour<T>
 
 	fun runIf(func: (List<Expression<Boolean>>) -> Boolean) {
 		runIf = func

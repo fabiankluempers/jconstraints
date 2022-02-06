@@ -21,50 +21,87 @@ package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import solverComposition.entity.DSLResult
-import solverComposition.entity.ParallelBehaviour
-import solverComposition.entity.ParallelComposition
-import solverComposition.entity.SolverWithBehaviour
+import solverComposition.entity.*
 import java.util.*
 
-class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder>() {
-	private var waitFor: Int = 0
+class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>() {
 	private val solvers = mutableListOf<SolverWithBehaviour<ParallelBehaviour>>()
-	lateinit var finalVerdict : (Map<String, DSLResult>) -> DSLResult
+	private lateinit var finalVerdict: (Map<String, DSLResult>) -> DSLResult
 	override fun build(): ConstraintSolver {
 		val actualSolvers = solvers.toList()
 		solvers.clear()
 		return ParallelComposition(
-			solvers = actualSolvers.associateBy { it.behaviour.identifier },
-			waitFor = waitFor,
+			solvers = actualSolvers,
+			runConf = if (runConfiguration.limit < 0) runConfiguration.copy(limit = actualSolvers.size) else runConfiguration,
 			finalVerdict = finalVerdict,
 		)
 	}
 
-	fun waitFor(int: Int) {
-		waitFor = int
+	private lateinit var runConfiguration: RunConf
+
+	fun sequential() {
+		runConfiguration = RunConf(RunConfiguration.SEQUENTIAL, 0)
 	}
 
-	fun finalVerdict(func: (Map<String, DSLResult>) -> DSLResult) {
+	fun parallelWithLimit(limit: Int) {
+		runConfiguration = RunConf(RunConfiguration.PARALLEL, limit)
+	}
+
+	fun parallel() {
+		runConfiguration = RunConf(RunConfiguration.PARALLEL, -1)
+	}
+
+	fun finalVerdict(func: (results: Map<String, DSLResult>) -> DSLResult) {
 		finalVerdict = func
 	}
 
 	override fun solver(solver: String, func: ParallelSolverBuilder.() -> Unit) {
-		val behaviour = ParallelSolverBuilder().apply(func).build()
-		solvers.add(SolverWithBehaviour(ConstraintSolverFactory.createSolver(solver, behaviour.config), behaviour))
+		solvers.add(ParallelSolverBuilder().apply(func).build(solver))
+	}
+
+	override fun dslSolver(func: ParDslSolverBuilder.() -> Unit) {
+		solvers.add(ParDslSolverBuilder().apply(func).build())
 	}
 }
 
-class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
-	var config: Properties = Properties()
+open class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
+	val conf: Properties = Properties()
 
-	private var useContext = false
+	internal var useContext = false
 
 	fun useContext() {
 		useContext = true
 	}
 
-	override fun build(): ParallelBehaviour {
-		return ParallelBehaviour(identifier = identifier, runIf = runIf, config = config, useContext = useContext)
+	var ignoredSubset: Set<ConstraintSolver.Result> = setOf()
+
+	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
+		return SolverWithBehaviour(ConstraintSolverFactory.createSolver(provIdentifier, conf), ParallelBehaviour(
+			identifier = identifier,
+			runIf = runIf,
+			useContext = useContext,
+			ignoredSubset = ignoredSubset
+		))
+	}
+}
+
+class ParDslSolverBuilder : ParallelSolverBuilder() {
+	private lateinit var solver : ConstraintSolver
+
+	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
+		solver = ParallelCompositionBuilder().apply(func).build()
+	}
+
+	fun sequential(func: SequentialCompositionBuilder.() -> Unit) {
+		solver = SequentialCompositionBuilder().apply(func).build()
+	}
+
+	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
+		return SolverWithBehaviour(solver, ParallelBehaviour(
+			identifier = identifier,
+			runIf = runIf,
+			useContext = useContext,
+			ignoredSubset = ignoredSubset
+		))
 	}
 }

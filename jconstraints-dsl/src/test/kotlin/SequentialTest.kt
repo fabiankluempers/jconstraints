@@ -22,19 +22,16 @@ import gov.nasa.jpf.constraints.api.*
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
 import gov.nasa.jpf.constraints.smtlibUtility.parser.SMTLIBParser
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
-import solverComposition.dsl.*
-import solverComposition.entity.ConstraintSolverComposition
-import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
-import java.time.Duration
 import java.util.*
 import kotlin.system.measureTimeMillis
 
 fun main() {
-	println(measureTimeMillis { (ConstraintSolverFactory.createSolver("seqtest").apply {
+	println(measureTimeMillis { (ConstraintSolverFactory.createSolver("partest", Properties().apply {
+		setProperty("run", "par")
+		setProperty("lim", "2")
+	}).apply {
 		val ctx = createContext()
-		println(ctx.add(problem3.assertions))
+		ctx.add(problem3.assertions)
 		val valuation = Valuation()
 		println(ctx.solve(valuation))
 		println(valuation)
@@ -42,9 +39,6 @@ fun main() {
 		ctx.add(problem4.assertions)
 		println(ctx.solve(valuation))
 		ctx.dispose()
-		println(valuation)
-		solve(problem3.allAssertionsAsConjunction, Valuation())
-		solve(problem4.allAssertionsAsConjunction, Valuation())
 	})})
 }
 

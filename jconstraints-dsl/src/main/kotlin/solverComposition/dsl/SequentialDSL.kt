@@ -28,12 +28,14 @@ import solverComposition.entity.SequentialComposition
 import solverComposition.entity.SolverWithBehaviour
 import java.util.*
 
-class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder>() {
-	private val solvers = mutableMapOf<String, SolverWithBehaviour<SequentialBehaviour>>()
+class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder, SeqDslSolverBuilder>() {
+	private val solvers = mutableListOf<SolverWithBehaviour<SequentialBehaviour>>()
 	private lateinit var startWith: (assertions: List<Expression<Boolean>>) -> String
 
 	override fun build(): ConstraintSolver {
-		return SequentialComposition(solvers, startWith)
+		val actualSolvers = solvers.toList()
+		solvers.clear()
+		return SequentialComposition(actualSolvers, startWith)
 	}
 
 	fun startWith(func: (assertions: List<Expression<Boolean>>) -> String) {
@@ -41,16 +43,21 @@ class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder>
 	}
 
 	override fun solver(solver: String, func: SequentialSolverBuilder.() -> Unit) {
-		val behaviour = SequentialSolverBuilder().apply(func).build()
-		solvers[behaviour.identifier] = SolverWithBehaviour(ConstraintSolverFactory.createSolver(solver, behaviour.config), behaviour)
+		val solverWithBehaviour = SequentialSolverBuilder().apply(func).build(solver)
+		solvers.add(solverWithBehaviour)
+	}
+
+	override fun dslSolver(func: SeqDslSolverBuilder.() -> Unit) {
+		val solverWithBehaviour = SeqDslSolverBuilder().apply(func).build()
+		solvers.add(solverWithBehaviour)
 	}
 }
 
-class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
-	private lateinit var continuation: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder
-	private var useContext = false
-	private var enableUnsatCoreTracking = false
-	var config: Properties = Properties()
+open class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
+	protected lateinit var continuation: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder
+	protected var useContext = false
+	protected var enableUnsatCoreTracking = false
+	val conf: Properties = Properties()
 
 	fun continuation(func: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder) {
 		continuation = func
@@ -64,15 +71,38 @@ class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
 		enableUnsatCoreTracking = true
 	}
 
-	override fun build(): SequentialBehaviour {
-		return SequentialBehaviour(
+	override fun build(provIdentifier: String?): SolverWithBehaviour<SequentialBehaviour> {
+		return SolverWithBehaviour(
+			ConstraintSolverFactory.createSolver(provIdentifier, conf),
+			SequentialBehaviour(
 			identifier = identifier,
 			runIf = runIf,
 			continuation = continuation,
 			useContext = useContext,
 			enableUnsatCore = enableUnsatCoreTracking,
-			config = config
-		)
+		))
+	}
+}
+
+class SeqDslSolverBuilder : SequentialSolverBuilder() {
+	private lateinit var solver : ConstraintSolver
+
+	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
+		solver = ParallelCompositionBuilder().apply(func).build()
+	}
+
+	fun sequential(func: SequentialCompositionBuilder.() -> Unit) {
+		solver = SequentialCompositionBuilder().apply(func).build()
+	}
+
+	override fun build(provIdentifier: String?): SolverWithBehaviour<SequentialBehaviour> {
+		return SolverWithBehaviour(solver, SequentialBehaviour(
+			identifier = identifier,
+			runIf = runIf,
+			continuation = continuation,
+			useContext = useContext,
+			enableUnsatCore = enableUnsatCoreTracking,
+		))
 	}
 }
 
@@ -100,6 +130,7 @@ class SatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(c
 
 sealed class ContinuationResult() {
 	abstract fun stop(): ContinuationBuilder
+	infix fun stopWith(result: ConstraintSolver.Result) = DefaultContinuationBuilder(Continuation(result))
 }
 
 object Unsat : ContinuationResult() {
@@ -163,8 +194,8 @@ data class Continuation(
 	val replaceWithNewModel: Boolean = false,
 )
 
-sealed class ContinueMode()
+sealed class ContinueMode
 
 object Stop : ContinueMode()
 
-data class Continue(val identifer: String) : ContinueMode()
+data class Continue(val identifier: String) : ContinueMode()

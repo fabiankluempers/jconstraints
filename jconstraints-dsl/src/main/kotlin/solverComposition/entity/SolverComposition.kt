@@ -33,7 +33,6 @@ abstract class ConstraintSolverBehaviour(
 	val identifier: String,
 	val runIf: (List<Expression<Boolean>>) -> Boolean,
 	val useContext: Boolean,
-	val config: Properties,
 )
 
 class SequentialBehaviour(
@@ -42,38 +41,38 @@ class SequentialBehaviour(
 	val continuation: (List<Expression<Boolean>>, ContinuationResult, Valuation) -> ContinuationBuilder,
 	val enableUnsatCore: Boolean,
 	useContext: Boolean,
-	config: Properties,
-) : ConstraintSolverBehaviour(identifier, runIf, useContext, config)
+) : ConstraintSolverBehaviour(identifier, runIf, useContext)
 
 class ParallelBehaviour(
 	identifier: String,
 	runIf: (List<Expression<Boolean>>) -> Boolean,
 	useContext: Boolean,
-	config: Properties,
-) : ConstraintSolverBehaviour(identifier, runIf, useContext, config)
+	val ignoredSubset: Set<ConstraintSolver.Result>
+) : ConstraintSolverBehaviour(identifier, runIf, useContext)
 
 data class DSLResult(val result: ConstraintSolver.Result, val valuation: Valuation)
 
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
-	val solvers: Map<String, SolverWithBehaviour<T>>,
+	solvers: List<SolverWithBehaviour<T>>
 ) : ConstraintSolver() {
-	protected val logger: Logger = Logger.getLogger("jconstraints dsl")
-
-	init {
-		require(
-			//TODO fix
-//			solvers
-//				.groupBy { it.behaviour.identifier }
-//				.values
-//				.all { it.size == 1 }
-			true
-		)
+	protected val solvers: Map<String, SolverWithBehaviour<T>> = buildMap {
+		for (solver in solvers) {
+			if (this.keys.contains(solver.behaviour.identifier))
+				throw DuplicateSolverIdentifierException(
+					"the identifier ${solver.behaviour.identifier} is not unique in this composition"
+				)
+			else this[solver.behaviour.identifier] = solver
+		}
 	}
+	protected val logger: Logger = Logger.getLogger("jconstraints dsl")
 
 	abstract fun dslSolve(assertions: List<Expression<Boolean>>): solverComposition.entity.DSLResult
 
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
-		logger.log(Level.INFO, "The solve method won't produce useful unsat cores in this composition. Use dslSolve if any of the solvers contained in this composition have unsatCoreTracking enabled.")
+		logger.log(
+			Level.INFO,
+			"The solve method won't produce useful unsat cores in this composition. Use dslSolve if any of the solvers contained in this composition have unsatCoreTracking enabled."
+		)
 		val dslResult = dslSolve(listOf(f ?: throw IllegalArgumentException("f should not be null")))
 		result?.putAll(dslResult.valuation)
 		return dslResult.result
@@ -81,7 +80,7 @@ abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 }
 
 class CompositionContext(private val comp: ConstraintSolverComposition<*>) : SolverContext() {
-	val assertionStack : MutableList<MutableList<Expression<Boolean>>> = mutableListOf(mutableListOf())
+	val assertionStack: MutableList<MutableList<Expression<Boolean>>> = mutableListOf(mutableListOf())
 
 	override fun push() {
 		assertionStack.add(mutableListOf())
@@ -115,6 +114,13 @@ class CompositionContext(private val comp: ConstraintSolverComposition<*>) : Sol
 		assertionStack.add(mutableListOf())
 	}
 }
+
+enum class RunConfiguration {
+	PARALLEL,
+	SEQUENTIAL
+}
+
+data class RunConf(val conf: RunConfiguration, val limit: Int)
 
 class DuplicateSolverIdentifierException(message: String) : Exception(message)
 
