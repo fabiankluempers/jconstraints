@@ -42,14 +42,21 @@ class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder,
 		startWith = func
 	}
 
-	override fun solver(solver: String, func: SequentialSolverBuilder.() -> Unit) {
+	override fun CompositionBuilder<SequentialSolverBuilder, SeqDslSolverBuilder>.solver(
+		solver: String,
+		func: SequentialSolverBuilder.() -> Unit
+	): String {
 		val solverWithBehaviour = SequentialSolverBuilder().apply(func).build(solver)
-		solvers.add(solverWithBehaviour)
+		this@SequentialCompositionBuilder.solvers.add(solverWithBehaviour)
+		return solverWithBehaviour.behaviour.identifier
 	}
 
-	override fun dslSolver(func: SeqDslSolverBuilder.() -> Unit) {
+	override fun CompositionBuilder<SequentialSolverBuilder, SeqDslSolverBuilder>.dslSolver(
+		func: SeqDslSolverBuilder.() -> Unit
+	): String {
 		val solverWithBehaviour = SeqDslSolverBuilder().apply(func).build()
-		solvers.add(solverWithBehaviour)
+		this@SequentialCompositionBuilder.solvers.add(solverWithBehaviour)
+		return solverWithBehaviour.behaviour.identifier
 	}
 }
 
@@ -75,17 +82,18 @@ open class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
 		return SolverWithBehaviour(
 			ConstraintSolverFactory.createSolver(provIdentifier, conf),
 			SequentialBehaviour(
-			identifier = identifier,
-			runIf = runIf,
-			continuation = continuation,
-			useContext = useContext,
-			enableUnsatCore = enableUnsatCoreTracking,
-		))
+				identifier = identifier,
+				runIf = runIf,
+				continuation = continuation,
+				useContext = useContext,
+				enableUnsatCore = enableUnsatCoreTracking,
+			)
+		)
 	}
 }
 
 class SeqDslSolverBuilder : SequentialSolverBuilder() {
-	private lateinit var solver : ConstraintSolver
+	private lateinit var solver: ConstraintSolver
 
 	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
 		solver = ParallelCompositionBuilder().apply(func).build()
@@ -96,13 +104,15 @@ class SeqDslSolverBuilder : SequentialSolverBuilder() {
 	}
 
 	override fun build(provIdentifier: String?): SolverWithBehaviour<SequentialBehaviour> {
-		return SolverWithBehaviour(solver, SequentialBehaviour(
-			identifier = identifier,
-			runIf = runIf,
-			continuation = continuation,
-			useContext = useContext,
-			enableUnsatCore = enableUnsatCoreTracking,
-		))
+		return SolverWithBehaviour(
+			solver, SequentialBehaviour(
+				identifier = identifier,
+				runIf = runIf,
+				continuation = continuation,
+				useContext = useContext,
+				enableUnsatCore = enableUnsatCoreTracking,
+			)
+		)
 	}
 }
 
@@ -112,18 +122,25 @@ sealed class ContinuationBuilder(internal val continuation: Continuation) {
 
 class DefaultContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation)
 
-object UnsatCore
+sealed class SatReplacement
 
-object NewModel
+object AddValuation : SatReplacement()
+
+object AddNegatedValuation : SatReplacement()
+
+sealed class UnsatReplacement
+
+object UnsatCore : UnsatReplacement()
+
 
 class UnsatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation) {
-	infix fun andReplaceWith(core: UnsatCore): ContinuationBuilder {
+	infix fun andReplaceAssertionsWith(replacement: UnsatReplacement): ContinuationBuilder {
 		return DefaultContinuationBuilder(this.continuation.copy(replaceWithCore = true))
 	}
 }
 
 class SatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(continuation) {
-	infix fun andReplaceWith(newModel: NewModel): ContinuationBuilder {
+	infix fun andAlterAssertions(replacement: SatReplacement): ContinuationBuilder {
 		return DefaultContinuationBuilder(this.continuation.copy(replaceWithNewModel = true))
 	}
 }
@@ -135,7 +152,12 @@ sealed class ContinuationResult() {
 
 object Unsat : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): UnsatContinuationBuilder {
-		return UnsatContinuationBuilder(Continuation(ConstraintSolver.Result.UNSAT, continueMode = Continue(solverIdentifier)))
+		return UnsatContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.UNSAT,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =
@@ -144,7 +166,12 @@ object Unsat : ContinuationResult() {
 
 object Sat : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): SatContinuationBuilder {
-		return SatContinuationBuilder(Continuation(ConstraintSolver.Result.SAT, continueMode = Continue(solverIdentifier)))
+		return SatContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.SAT,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =
@@ -153,7 +180,12 @@ object Sat : ContinuationResult() {
 
 object DontKnow : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
-		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW, continueMode = Continue(solverIdentifier)))
+		return DefaultContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.DONT_KNOW,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =
@@ -162,7 +194,12 @@ object DontKnow : ContinuationResult() {
 
 object Timeout : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
-		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.TIMEOUT, continueMode = Continue(solverIdentifier)))
+		return DefaultContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.TIMEOUT,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =
@@ -171,7 +208,12 @@ object Timeout : ContinuationResult() {
 
 object Error : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
-		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.ERROR, continueMode = Continue(solverIdentifier)))
+		return DefaultContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.ERROR,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =
@@ -180,7 +222,12 @@ object Error : ContinuationResult() {
 
 object DidNotRun : ContinuationResult() {
 	infix fun continueWith(solverIdentifier: String): ContinuationBuilder {
-		return DefaultContinuationBuilder(Continuation(ConstraintSolver.Result.DONT_KNOW, continueMode = Continue(solverIdentifier)))
+		return DefaultContinuationBuilder(
+			Continuation(
+				ConstraintSolver.Result.DONT_KNOW,
+				continueMode = Continue(solverIdentifier)
+			)
+		)
 	}
 
 	override fun stop(): ContinuationBuilder =

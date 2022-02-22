@@ -61,7 +61,6 @@ class ParallelComposition(
 		val remainingLatch = CountDownLatch(activeSolvers.size)
 		val workers = activeSolvers.map { Worker(it, assertions, remainingLatch, waitForLatch) }
 		val exec = Executors.newFixedThreadPool(activeSolvers.size)
-		val results = workers.map { exec.submit(it) }
 		val resultMap = mutableMapOf<String, DSLResult>()
 		val waiter = Thread {
 			try {
@@ -74,6 +73,7 @@ class ParallelComposition(
 			}
 		}
 		waiter.start()
+		val results = workers.map { exec.submit(it) }
 		remainingLatch.await()
 		waiter.interrupt()
 		results.forEach {

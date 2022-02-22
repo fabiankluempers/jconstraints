@@ -32,7 +32,6 @@ object SolverCompositionDSL {
 	fun parallelComposition(func: ParallelCompositionBuilder.() -> Unit): ConstraintSolver {
 		return ParallelCompositionBuilder().apply(func).build()
 	}
-
 }
 
 @DslMarker
@@ -42,18 +41,18 @@ annotation class SolverCompositionDslMarker
 abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
 	internal abstract fun build() : ConstraintSolver
 
-	abstract fun dslSolver(func: R.() -> Unit = {})
+	abstract fun CompositionBuilder<T, R>.dslSolver(func: R.() -> Unit = {}) : String
 
-	abstract fun solver(
+	abstract fun CompositionBuilder<T, R>.solver(
 		solver: String,
 		func: T.() -> Unit = {}
-	)
+	) : String
 }
 
 @SolverCompositionDslMarker
 abstract class  SolverBuilder <T : ConstraintSolverBehaviour> {
 	lateinit var identifier: String
-	internal var runIf: (assertions: List<Expression<Boolean>>) -> Boolean = { true }
+	protected var runIf: (assertions: List<Expression<Boolean>>) -> Boolean = { true }
 
 	internal abstract fun build(provIdentifier: String? = null) : SolverWithBehaviour<T>
 

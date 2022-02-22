@@ -1,4 +1,4 @@
-package dsl.test
+package instances
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
@@ -11,10 +11,10 @@ class MockSolver(private val res: Result, private val runtime: Long) : Constrain
 		try {
 			Thread.sleep(runtime)
 		} catch (e : InterruptedException) {
-			println("wurde interuppted :( ${e.localizedMessage}")
+			println("mock solver was interrupted")
 			return res
 		}
-		println("bin wach ${Thread.currentThread().isInterrupted}")
+		println("mock solver was not interrupted")
 		return res
 	}
 }

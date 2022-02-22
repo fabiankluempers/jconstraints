@@ -55,19 +55,23 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, Par
 		finalVerdict = func
 	}
 
-	override fun solver(solver: String, func: ParallelSolverBuilder.() -> Unit) {
-		solvers.add(ParallelSolverBuilder().apply(func).build(solver))
+	override fun CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>.solver(solver: String, func: ParallelSolverBuilder.() -> Unit): String {
+		val solverWithBehaviour = ParallelSolverBuilder().apply(func).build(solver)
+		this@ParallelCompositionBuilder.solvers.add(solverWithBehaviour)
+		return solverWithBehaviour.behaviour.identifier
 	}
 
-	override fun dslSolver(func: ParDslSolverBuilder.() -> Unit) {
-		solvers.add(ParDslSolverBuilder().apply(func).build())
+	override fun CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>.dslSolver(func: ParDslSolverBuilder.() -> Unit): String {
+		val solverWithBehaviour = ParDslSolverBuilder().apply(func).build()
+		this@ParallelCompositionBuilder.solvers.add(solverWithBehaviour)
+		return solverWithBehaviour.behaviour.identifier
 	}
 }
 
 open class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
 	val conf: Properties = Properties()
 
-	internal var useContext = false
+	protected var useContext = false
 
 	fun useContext() {
 		useContext = true
