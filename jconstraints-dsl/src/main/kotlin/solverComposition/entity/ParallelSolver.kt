@@ -35,6 +35,7 @@ class ParallelComposition(
 
 	private fun seqDslSolve(assertions: List<Expression<Boolean>>): DSLResult {
 		val activeSolvers = solvers.values.filter { it.behaviour.runIf(assertions) }
+		val assertion = ExpressionUtil.and(assertions)
 		val resultMap = mutableMapOf<String, DSLResult>()
 		for (solverWithBehaviour in activeSolvers) {
 			if (solverWithBehaviour.behaviour.useContext) {
@@ -47,7 +48,7 @@ class ParallelComposition(
 					resultMap[solverWithBehaviour.behaviour.identifier] = DSLResult(res, valuation)
 			} else {
 				val valuation = Valuation()
-				val res = solverWithBehaviour.solver.solve(ExpressionUtil.and(assertions), valuation)
+				val res = solverWithBehaviour.solver.solve(assertion, valuation)
 				if (res !in solverWithBehaviour.behaviour.ignoredSubset)
 					resultMap[solverWithBehaviour.behaviour.identifier] = DSLResult(res, valuation)
 			}
@@ -56,10 +57,11 @@ class ParallelComposition(
 	}
 
 	private fun parDslSolve(assertions: List<Expression<Boolean>>): DSLResult {
+		val assertion = ExpressionUtil.and(assertions)
 		val activeSolvers = solvers.values.filter { it.behaviour.runIf(assertions) }
 		val waitForLatch = CountDownLatch(runConf.limit)
 		val remainingLatch = CountDownLatch(activeSolvers.size)
-		val workers = activeSolvers.map { Worker(it, assertions, remainingLatch, waitForLatch) }
+		val workers = activeSolvers.map { Worker(it, assertions, assertion, remainingLatch, waitForLatch) }
 		val exec = Executors.newFixedThreadPool(activeSolvers.size)
 		val resultMap = mutableMapOf<String, DSLResult>()
 		val waiter = Thread {
@@ -91,6 +93,7 @@ class ParallelComposition(
 	inner class Worker(
 		private val solver: SolverWithBehaviour<ParallelBehaviour>,
 		private val assertions: List<Expression<Boolean>>,
+		private val assertion: Expression<Boolean>,
 		private val remainingLatch: CountDownLatch,
 		private val waitForLatch: CountDownLatch,
 	) : Callable<Pair<String, DSLResult>> {
@@ -112,7 +115,7 @@ class ParallelComposition(
 				} else {
 					val valuation = Valuation()
 					return solver.behaviour.identifier to DSLResult(
-						solver.solver.solve(ExpressionUtil.and(assertions), valuation),
+						solver.solver.solve(assertion, valuation),
 						valuation
 					).also { if (it.result !in behaviour.ignoredSubset) waitForCountdown = true }
 				}
