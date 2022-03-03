@@ -223,24 +223,24 @@ class SeqRuntimeTest {
 		var result : ConstraintSolver.Result?
 		val z3 = ConstraintSolverFactory.createSolver("z3")
 		val dk = ConstraintSolverFactory.createSolver("z3")
-		val z3ctx = z3.createContext()
-		val z3unsatSolver = (z3ctx as UNSATCoreSolver)
-		z3unsatSolver.enableUnsatTracking()
+		val ctx = z3.createContext()
+		ctx as UNSATCoreSolver
+		ctx.enableUnsatTracking()
 		val timeSpentSat = measureTimeMillis {
-			z3ctx.push()
-			z3ctx.add(satProblem.assertions)
-			result = z3ctx.solve(Valuation())
-			z3ctx.pop()
+			ctx.push()
+			ctx.add(satProblem.assertions)
+			result = ctx.solve(Valuation())
+			ctx.pop()
 			//dk.solve(satProblem.allAssertionsAsConjunction, Valuation())
 		}
 		assertEquals(ConstraintSolver.Result.SAT, result)
 		println("testNoDSL: time spent solving sat instance: $timeSpentSat")
 		val timeSpentUnsat = measureTimeMillis {
-			z3ctx.push()
-			z3ctx.add(unsatProblem.assertions)
-			result = z3ctx.solve(Valuation())
-			z3ctx.pop()
-			val core = z3unsatSolver.unsatCore
+			ctx.push()
+			ctx.add(unsatProblem.assertions)
+			result = ctx.solve(Valuation())
+			ctx.pop()
+			val core = ctx.unsatCore
 			dk.solve(ExpressionUtil.and(core), Valuation())
 		}
 		assertEquals(ConstraintSolver.Result.UNSAT, result)
@@ -288,5 +288,47 @@ class SeqRuntimeTest {
 		println("loadZ3withPar: time spent loading Z3 with ParDSL-Script: $timeSpentLoading")
 	}
 
-
+	@DisplayName("Report runtime of 20 Z3 instances")
+	@Test fun test20z3parallel() {
+		val comp = SolverCompositionDSL.parallelComposition {
+			parallel()
+			repeat(20) {
+				solver("Z3") {
+					identifier = "Z3$it"
+				}
+			}
+			finalVerdict {
+				it.values.first()
+			}
+		}
+		var assertion = satProblem.allAssertionsAsConjunction
+		var result : ConstraintSolver.Result?
+		var timeSpentSolving = measureTimeMillis {
+			result = comp.solve(assertion, Valuation())
+		}
+		assertEquals(ConstraintSolver.Result.SAT, result)
+		println("test10z3parallel: time spent solving sat instance: $timeSpentSolving")
+		assertion = unsatProblem.allAssertionsAsConjunction
+		timeSpentSolving = measureTimeMillis {
+			result = comp.solve(assertion, Valuation())
+		}
+		assertEquals(ConstraintSolver.Result.UNSAT, result)
+		println("test10z3parallel: time spent solving unsat instance: $timeSpentSolving")
+		assertion = satProblem.allAssertionsAsConjunction
+		val z3s = mutableListOf<ConstraintSolver>()
+		repeat(20) { z3s.add(ConstraintSolverFactory.createSolver("Z3")) }
+		timeSpentSolving = measureTimeMillis {
+			for (z3 in z3s) {
+				z3.solve(assertion, Valuation())
+			}
+		}
+		println("test10z3parallel: time spent manually and sequentially solving sat instance: $timeSpentSolving")
+		assertion = unsatProblem.allAssertionsAsConjunction
+		timeSpentSolving = measureTimeMillis {
+			for (z3 in z3s) {
+				z3.solve(assertion, Valuation())
+			}
+		}
+		println("test10z3parallel: time spent manually and sequentially solving unsat instance: $timeSpentSolving")
+	}
 }
