@@ -1,3 +1,3 @@
-instances.SequentialTestSolverProvider
-instances.ParallelTestSolverProvider
-instances.MockSolverProvider
+dsl.instances.SequentialTestSolverProvider
+dsl.instances.ParallelTestSolverProvider
+dsl.instances.MockSolverProvider

@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package instances
+package dsl.instances
 
 import IsMulExpressionVisitor
 import gov.nasa.jpf.constraints.api.ConstraintSolver

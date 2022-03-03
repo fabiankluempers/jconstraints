@@ -1,4 +1,4 @@
-package instances
+package dsl.instances
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.UNSATCoreSolver
