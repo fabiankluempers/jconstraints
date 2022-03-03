@@ -71,7 +71,7 @@ abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 	override fun solve(f: Expression<Boolean>?, result: Valuation?): Result {
 		logger.log(
 			Level.INFO,
-			"The solve method won't produce useful unsat cores in this composition. Use dslSolve if any of the solvers contained in this composition have unsatCoreTracking enabled."
+			"The solve method won't produce useful unsat cores in this composition. Use a Context if any of the solvers contained in this composition have unsatCoreTracking enabled."
 		)
 		val dslResult = dslSolve(listOf(f ?: throw IllegalArgumentException("f should not be null")))
 		result?.putAll(dslResult.valuation)
@@ -80,38 +80,41 @@ abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 }
 
 class CompositionContext(private val comp: ConstraintSolverComposition<*>) : SolverContext() {
-	val assertionStack: MutableList<MutableList<Expression<Boolean>>> = mutableListOf(mutableListOf())
+	private var assertionStack: MutableList<MutableList<Expression<Boolean>>>? = mutableListOf(mutableListOf())
 
 	override fun push() {
-		assertionStack.add(mutableListOf())
+		val stack = checkNotNull(assertionStack) { "this context is already disposed" }
+		stack.add(mutableListOf())
 	}
 
 	override fun pop(n: Int) {
+		val stack = checkNotNull(assertionStack) { "this context is already disposed" }
 		repeat(n) {
-			assertionStack.removeLastOrNull()
+			stack.removeLastOrNull()
 		}
-		if (assertionStack.isEmpty()) {
-			assertionStack.add(mutableListOf())
+		if (stack.isEmpty()) {
+			stack.add(mutableListOf())
 		}
 	}
 
 	override fun solve(`val`: Valuation?): ConstraintSolver.Result {
-		with(comp.dslSolve(assertionStack.flatten())) {
+		val stack = checkNotNull(assertionStack) { "this context is already disposed" }
+		with(comp.dslSolve(stack.flatten())) {
 			`val`?.putAll(valuation)
 			return result
 		}
 	}
 
 	override fun add(expressions: MutableList<Expression<Boolean>>?) {
+		val stack = checkNotNull(assertionStack) { "this context is already disposed" }
 		if (expressions != null) {
-			assertionStack.last().addAll(expressions)
+			stack.last().addAll(expressions)
 		}
 
 	}
 
 	override fun dispose() {
-		assertionStack.clear()
-		assertionStack.add(mutableListOf())
+		assertionStack = null
 	}
 }
 
