@@ -7,7 +7,9 @@ import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
 import gov.nasa.jpf.constraints.smtlibUtility.parser.SMTLIBParser
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 import gov.nasa.jpf.constraints.util.ExpressionUtil
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import solverComposition.dsl.Sat
@@ -17,35 +19,55 @@ import solverComposition.dsl.UnsatCore
 import solverComposition.entity.DSLResult
 import kotlin.system.measureTimeMillis
 
-val unsatProblem: SMTProblem = SMTLIBParser.parseSMTProgram(
-	"""
-			(declare-fun A () Int)
-			(declare-fun B () Int)
-			(declare-fun C () Int)
-			(assert (= A B))
-			(assert (> A B))
-			(assert (> C A))
-			(assert (= C 5))
-			(check-sat)
-		""".trimIndent()
-)
-
-val satProblem: SMTProblem = SMTLIBParser.parseSMTProgram(
-	"""
-	(declare-fun A () Int)
-	(declare-fun B () Int)
-	(assert (= A B))
-	(assert (= A 5))
-""".trimIndent()
-)
-
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SeqRuntimeTest {
-	@BeforeAll
-	fun initialLoad() {
-		ConstraintSolverFactory.createSolver("z3")
+
+	private val unsatProblem: SMTProblem = SMTLIBParser.parseSMTProgram(
+		"""
+		(declare-fun A () Int)
+		(declare-fun B () Int)
+		(declare-fun C () Int)
+		(assert (= A B))
+		(assert (> A B))
+		(assert (> C A))
+		(assert (= C 5))
+		(check-sat)
+		""".trimIndent()
+	)
+
+	private val satProblem: SMTProblem = SMTLIBParser.parseSMTProgram(
+		"""
+		(declare-fun A () Int)
+		(declare-fun B () Int)
+		(assert (= A B))
+		(assert (= A 5))
+		""".trimIndent()
+	)
+
+	/**
+	 * loads all the solvers used in this testsuite once, to eliminate the initial load times of
+	 * [ConstraintSolverFactory.createSolver].
+	 *
+	 * Also executes create context and some solving on Z3 because somehow the first
+	 * calls to solve lead to longer response times than consecutive ones.
+	 *
+	 * This leads to better comparability of the measured runtimes in this testsuite.
+	 */
+	@BeforeAll fun initialLoad() {
+		val z3 = ConstraintSolverFactory.createSolver("z3").createContext()
+		z3 as UNSATCoreSolver
 		ConstraintSolverFactory.createSolver("dontKnow")
 		ConstraintSolverFactory.createSolver("mock")
+		z3.push()
+		z3.add(satProblem.assertions)
+		z3.solve(Valuation())
+		z3.pop()
+		z3.enableUnsatTracking()
+		z3.push()
+		z3.add(unsatProblem.assertions)
+		z3.solve(Valuation())
+		z3.unsatCore
+		z3.pop()
 	}
 
 	private fun genSeqMockComp(numMocks : Int) = SolverCompositionDSL.sequentialComposition {
@@ -108,6 +130,11 @@ class SeqRuntimeTest {
 		}
 	}
 
+	/**
+	 * Creates a SequentialComposition with 10.000 mock solvers via [genSeqMockComp].
+	 * Reports the measured runtime for instantiating and solving to stdout.
+	 */
+	@DisplayName("Report Runtime of a SequentialComposition with 10k mock Solvers")
 	@Test fun test10kMocksSeq() {
 		var comp: ConstraintSolver?
 		val timeSpentLoading = measureTimeMillis {
@@ -120,6 +147,11 @@ class SeqRuntimeTest {
 		println("test10kMocksSeq: time spent loading 10k mock solvers: $timeSpentLoading, time spent solving with 10k mock solvers: $timeSpentSolving")
 	}
 
+	/**
+	 * Creates a ParallelComposition with 10.000 mock solvers via [genParMockComp].
+	 * Reports the measured runtime for instantiating and solving to stdout.
+	 */
+	@DisplayName("Report Runtime of a ParallelComposition with 10k mock Solvers")
 	@Test fun test10kMocksPar() {
 		var comp: ConstraintSolver?
 		val timeSpentLoading = measureTimeMillis {
@@ -132,7 +164,17 @@ class SeqRuntimeTest {
 		println("test10kMocksPar: time spent loading 10k mock solvers: $timeSpentLoading, time spent solving with 10k mock solvers: $timeSpentSolving")
 	}
 
+	/**
+	 * Creates a SequentialComp that runs Z3 first and DontKnow second.
+	 * Continuation of Z3:
+	 * Sat -> stop with Sat
+	 * Unsat -> continue with DontKnowSolver and replace assertions with core
+	 *
+	 * Reports the runtime of the Composition when executed on a sat and unsat SMT-Problem to stdout.
+	 */
+	@DisplayName("Report Runtime of a SequentialComposition using the Z3 Solver")
 	@Test fun testZ3inSeq() {
+		var result : ConstraintSolver.Result?
 		val comp = SolverCompositionDSL.sequentialComposition {
 			startWith { "Z3" }
 			solver("Z3") {
@@ -158,20 +200,27 @@ class SeqRuntimeTest {
 		val timeSpentSat = measureTimeMillis {
 			ctx.push()
 			ctx.add(satProblem.assertions)
-			ctx.solve(Valuation())
+			result = ctx.solve(Valuation())
 			ctx.pop()
 		}
+		assertEquals(ConstraintSolver.Result.SAT, result)
 		println("testZ3inSeq: time spent solving sat instance: $timeSpentSat")
 		val timeSpentUnsat = measureTimeMillis {
 			ctx.push()
 			ctx.add(unsatProblem.assertions)
-			ctx.solve(Valuation())
+			result = ctx.solve(Valuation())
 			ctx.pop()
 		}
+		assertEquals(ConstraintSolver.Result.DONT_KNOW, result)
 		println("testZ3inSeq: time spent solving unsat instance: $timeSpentUnsat")
 	}
 
+	/**
+	 * Manual Implementation of the Composition in [testZ3inSeq].
+	 */
+	@DisplayName("Report Runtime of manual Implementation of a metasolving-strategy")
 	@Test fun testNoDSL() {
+		var result : ConstraintSolver.Result?
 		val z3 = ConstraintSolverFactory.createSolver("z3")
 		val dk = ConstraintSolverFactory.createSolver("z3")
 		val z3ctx = z3.createContext()
@@ -180,22 +229,25 @@ class SeqRuntimeTest {
 		val timeSpentSat = measureTimeMillis {
 			z3ctx.push()
 			z3ctx.add(satProblem.assertions)
-			z3ctx.solve(Valuation())
+			result = z3ctx.solve(Valuation())
 			z3ctx.pop()
-			dk.solve(satProblem.allAssertionsAsConjunction, Valuation())
+			//dk.solve(satProblem.allAssertionsAsConjunction, Valuation())
 		}
+		assertEquals(ConstraintSolver.Result.SAT, result)
 		println("testNoDSL: time spent solving sat instance: $timeSpentSat")
 		val timeSpentUnsat = measureTimeMillis {
 			z3ctx.push()
 			z3ctx.add(unsatProblem.assertions)
-			z3ctx.solve(Valuation())
+			result = z3ctx.solve(Valuation())
 			z3ctx.pop()
 			val core = z3unsatSolver.unsatCore
 			dk.solve(ExpressionUtil.and(core), Valuation())
 		}
+		assertEquals(ConstraintSolver.Result.UNSAT, result)
 		println("testNoDSL: time spent solving unsat instance: $timeSpentUnsat")
 	}
 
+	@DisplayName("Report Runtime of loading Z3 in a SequentialComposition")
 	@Test fun loadZ3withSeq() {
 		val timeSpentLoading = measureTimeMillis {
 			SolverCompositionDSL.sequentialComposition {
@@ -211,6 +263,7 @@ class SeqRuntimeTest {
 		println("loadZ3withSeq: time spent loading Z3 with SeqDSL-Script: $timeSpentLoading")
 	}
 
+	@DisplayName("Report Runtime of loading Z3.")
 	@Test fun loadZ3withoutDSL() {
 		val timeSpentLoading = measureTimeMillis {
 			ConstraintSolverFactory.createSolver("z3")
@@ -218,6 +271,7 @@ class SeqRuntimeTest {
 		println("loadZ3withoutDSL: time spent loading Z3 without DSL: $timeSpentLoading")
 	}
 
+	@DisplayName("Report Runtime of loading Z3 in a ParallelComposition")
 	@Test fun loadZ3withPar() {
 		val timeSpentLoading = measureTimeMillis {
 			SolverCompositionDSL.parallelComposition {
@@ -233,4 +287,6 @@ class SeqRuntimeTest {
 		}
 		println("loadZ3withPar: time spent loading Z3 with ParDSL-Script: $timeSpentLoading")
 	}
+
+
 }
