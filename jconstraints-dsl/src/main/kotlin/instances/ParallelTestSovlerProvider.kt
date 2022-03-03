@@ -1,10 +1,8 @@
 package instances
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Valuation
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
 import solverComposition.dsl.SolverCompositionDSL
-import solverComposition.entity.DSLResult
 import java.util.*
 
 class ParallelTestSolverProvider : ConstraintSolverProvider {
@@ -14,38 +12,20 @@ class ParallelTestSolverProvider : ConstraintSolverProvider {
 		SolverCompositionDSL.parallelComposition {
 			solver("mock") {
 				identifier = "3000"
-				conf.setProperty("res", "sat")
-				conf.setProperty("timeout", "3000")
+				configuration.setProperty("res", "sat")
+				configuration.setProperty("timeout", "3000")
 				ignoredSubset = setOf(ConstraintSolver.Result.SAT)
+				useContext()
 			}
 			solver("mock") {
-				identifier = "2000"
-				conf.setProperty("res", "sat")
-				conf.setProperty("timeout", "2000")
+				identifier = "4000"
+				configuration.setProperty("res", "sat")
+				configuration.setProperty("timeout", "4000")
 			}
-			dslSolver {
-
-				parallel {
-					solver("dontKnow") {
-						runIf {
-							println("inner DK starting!!")
-							true
-						}
-						useContext()
-						identifier = "dk"
-					}
-
-					finalVerdict {
-						println("inner DK stopping!!")
-						DSLResult(ConstraintSolver.Result.DONT_KNOW, Valuation())
-					}
-
-					sequential()
-				}
-
-				identifier = "inner dsl solver"
-				useContext()
-
+			solver("mock") {
+				identifier = "5000"
+				configuration.setProperty("res", "sat")
+				configuration.setProperty("timeout", "5000")
 			}
 			if (config.getProperty("run") == "par") {
 				val limit = config.getProperty("lim")
@@ -57,6 +37,7 @@ class ParallelTestSolverProvider : ConstraintSolverProvider {
 			} else {
 				sequential()
 			}
+			parallelWithLimit(5)
 			finalVerdict { results ->
 				println(results)
 				results.values.first()

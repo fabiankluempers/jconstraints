@@ -26,7 +26,7 @@ internal class ContinuationTest {
 
 	@Test
 	fun testUnsatContinueReplace() {
-		val actual = (Unsat continueWith "id" andReplaceWith UnsatCore).continuation
+		val actual = (Unsat continueWith "id" andReplaceAssertionsWith UnsatCore).continuation
 		val expected = Continuation(
 			result = ConstraintSolver.Result.UNSAT,
 			continueMode = Continue("id"),
@@ -62,7 +62,7 @@ internal class ContinuationTest {
 
 	@Test
 	fun testSatContinueReplace() {
-		val actual = (Sat continueWith "id" andReplaceWith NewModel).continuation
+		val actual = (Sat continueWith "id" andAlterAssertions AddNegatedValuation).continuation
 		val expected = Continuation(
 			result = ConstraintSolver.Result.SAT,
 			continueMode = Continue("id"),
@@ -74,7 +74,7 @@ internal class ContinuationTest {
 
 	@Test
 	fun testSatContinue() {
-		val actual = (Sat continueWith "id" andReplaceWith NewModel).continuation
+		val actual = (Sat continueWith "id" andAlterAssertions AddNegatedValuation).continuation
 		val expected = Continuation(
 			result = ConstraintSolver.Result.SAT,
 			continueMode = Continue("id"),

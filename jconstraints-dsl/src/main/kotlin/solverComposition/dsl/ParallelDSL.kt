@@ -22,7 +22,6 @@ package solverComposition.dsl
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 import solverComposition.entity.*
-import java.util.*
 
 class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>() {
 	private val solvers = mutableListOf<SolverWithBehaviour<ParallelBehaviour>>()
@@ -55,21 +54,20 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, Par
 		finalVerdict = func
 	}
 
-	override fun CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>.solver(solver: String, func: ParallelSolverBuilder.() -> Unit): String {
+	override fun solver(solver: String, func: ParallelSolverBuilder.() -> Unit): String {
 		val solverWithBehaviour = ParallelSolverBuilder().apply(func).build(solver)
-		this@ParallelCompositionBuilder.solvers.add(solverWithBehaviour)
+		solvers.add(solverWithBehaviour)
 		return solverWithBehaviour.behaviour.identifier
 	}
 
-	override fun CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>.dslSolver(func: ParDslSolverBuilder.() -> Unit): String {
+	override fun dslSolver(func: ParDslSolverBuilder.() -> Unit): String {
 		val solverWithBehaviour = ParDslSolverBuilder().apply(func).build()
-		this@ParallelCompositionBuilder.solvers.add(solverWithBehaviour)
+		solvers.add(solverWithBehaviour)
 		return solverWithBehaviour.behaviour.identifier
 	}
 }
 
 open class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
-	val conf: Properties = Properties()
 
 	protected var useContext = false
 
@@ -80,7 +78,7 @@ open class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
 	var ignoredSubset: Set<ConstraintSolver.Result> = setOf()
 
 	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
-		return SolverWithBehaviour(ConstraintSolverFactory.createSolver(provIdentifier, conf), ParallelBehaviour(
+		return SolverWithBehaviour(ConstraintSolverFactory.createSolver(provIdentifier, configuration), ParallelBehaviour(
 			identifier = identifier,
 			runIf = runIf,
 			useContext = useContext,

@@ -19,74 +19,72 @@
 
 package instances
 
+import IsMulExpressionVisitor
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.ConstraintSolver.Result
+import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.Valuation
+import gov.nasa.jpf.constraints.expressions.AbstractExpressionVisitor
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
 import solverComposition.dsl.*
-import solverComposition.entity.DSLResult
-import tools.aqua.jconstraints.solvers.portfolio.sequential.StringOrFloatExpressionVisitor
 import java.util.*
+import kotlin.random.Random
+
+
+fun List<Expression<Boolean>>.evaluateSMT(valuation: Valuation) = all { it.evaluateSMT(valuation) }
 
 class SequentialTestSolverProvider : ConstraintSolverProvider {
 	override fun getNames(): Array<String> {
 		return Array(1) { "seqtest" }
 	}
 
+
 	override fun createSolver(config: Properties?): ConstraintSolver = SolverCompositionDSL.sequentialComposition {
+		solver("a") {
+			identifier = "dk"
+			runIf {
+				println("Dont Know input $it")
+				true
+			}
+			useContext()
+			continuation { assertions, result, valuation ->
+				when (result) {
+					is Sat -> {
+						if (assertions.evaluateSMT(valuation)) result stopWith Result.SAT
+						else result continueWith "Z3"
+					}
+					is Unsat -> result continueWith "Z3" andReplaceAssertionsWith UnsatCore
+					else -> result continueWith "Z3"
+				}
+			}
+		}
+
 		solver("z3") {
 			identifier = "z3"
 			runIf {
-				println(it)
+				println("Z3 input: $it")
 				true
 			}
-
 			enableUnsatCoreTracking()
-
 			useContext()
-
 			continuation { assertions, result, valuation ->
 				when (result) {
-					is Sat -> if (assertions.all { it.evaluateSMT(valuation) }) result.stop() else result continueWith "dk"
-					is Unsat -> result continueWith "dk" andReplaceWith UnsatCore
-					is DontKnow -> result continueWith "dk"
+					is Sat -> {
+						if (assertions.evaluateSMT(valuation))
+							result.stop()
+						else
+							result continueWith "dk"
+					}
+					is Unsat -> result continueWith "dk" andReplaceAssertionsWith UnsatCore
 					else -> result stopWith Result.DONT_KNOW
 				}
 			}
 		}
 
-		solver("dontKnow") {
-
-			identifier = "dk"
-
-			runIf {
-				println(it)
-				true
-			}
-
-			continuation { _, result, _ ->
-				result.stop()
-			}
-		}
-
 		startWith { assertions ->
-			println(assertions)
+			println("start with input: $assertions")
 			"z3"
 		}
 	}
-
-	fun a() {
-		SolverCompositionDSL.parallelComposition {
-			solver("seqtest") {
-				identifier = "afjlkjdsg"
-				useContext()
-				runIf {
-					true
-				}
-			}
-			finalVerdict { results ->
-				results["afjlkjdsg"] ?: DSLResult(ConstraintSolver.Result.DONT_KNOW, Valuation())
-			}
-		}
-	}
 }
+

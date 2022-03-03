@@ -22,6 +22,7 @@ package solverComposition.dsl
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.Expression
 import solverComposition.entity.*
+import java.util.*
 
 
 object SolverCompositionDSL {
@@ -41,9 +42,9 @@ annotation class SolverCompositionDslMarker
 abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
 	internal abstract fun build() : ConstraintSolver
 
-	abstract fun CompositionBuilder<T, R>.dslSolver(func: R.() -> Unit = {}) : String
+	abstract fun dslSolver(func: R.() -> Unit = {}) : String
 
-	abstract fun CompositionBuilder<T, R>.solver(
+	abstract fun solver(
 		solver: String,
 		func: T.() -> Unit = {}
 	) : String
@@ -51,6 +52,7 @@ abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
 
 @SolverCompositionDslMarker
 abstract class  SolverBuilder <T : ConstraintSolverBehaviour> {
+	val configuration: Properties = Properties()
 	lateinit var identifier: String
 	protected var runIf: (assertions: List<Expression<Boolean>>) -> Boolean = { true }
 

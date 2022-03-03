@@ -18,13 +18,11 @@
  */
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
 import gov.nasa.jpf.constraints.api.UNSATCoreSolver
 import gov.nasa.jpf.constraints.api.Valuation
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
 import gov.nasa.jpf.constraints.smtlibUtility.parser.SMTLIBParser
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import java.util.concurrent.*
 
 class SMTPlayground {
 
@@ -119,10 +117,6 @@ class SMTPlayground {
 ////	}
 //}
 
-fun main() {
-	val cvc4 = ConstraintSolverFactory.createSolver("cvc4")
-	cvc4.solve(problem.allAssertionsAsConjunction, null)
-}
 
 val problem: SMTProblem = SMTLIBParser.parseSMTProgram(
 	"""
@@ -141,16 +135,37 @@ val problem: SMTProblem = SMTLIBParser.parseSMTProgram(
 
 val problem2: SMTProblem = SMTLIBParser.parseSMTProgram(
 	"""
-			(declare-fun A () Int)
-			(declare-fun B () Int)
-			(declare-fun C () Int)
-			(assert (= A B))
-			(assert (> A B))
-			(assert (> C A))
-			(assert (= C 5))
-			(check-sat)
-		""".trimIndent()
+	(declare-fun A () Int)
+	(declare-fun B () Int)
+	(declare-fun C () Int)
+	(assert (= A B))
+	(assert (> A B))
+	(assert (> C A))
+	(assert (= C 5))
+	(check-sat)
+	""".trimIndent()
 )
+
+fun main() {
+	val solver = ConstraintSolverFactory.createSolver("z3")
+	val valuation = Valuation()
+	if (solver is UNSATCoreSolver) {
+		solver.enableUnsatTracking()
+		println(problem2)
+		println(solver.solve(problem2.allAssertionsAsConjunction, valuation))
+		println(valuation)
+		println(solver.unsatCore)
+	}
+	val ctx = solver.createContext()
+	if (ctx is UNSATCoreSolver) {
+		ctx.enableUnsatTracking()
+		problem2.addProblemToContext(ctx)
+		val res = ctx.solve(valuation)
+		println(valuation)
+		println(ctx.unsatCore)
+		if (res == ConstraintSolver.Result.UNSAT)
+	}
+}
 
 fun withCtxAndConj(problem: SMTProblem) {
 	val z3 = ConstraintSolverFactory.createSolver("z3")

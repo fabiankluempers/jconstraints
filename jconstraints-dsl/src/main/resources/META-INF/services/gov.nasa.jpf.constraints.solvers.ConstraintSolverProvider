@@ -1,2 +1,3 @@
 instances.SequentialTestSolverProvider
 instances.ParallelTestSolverProvider
+instances.MockSolverProvider

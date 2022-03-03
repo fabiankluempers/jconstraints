@@ -26,7 +26,7 @@ import java.util.*
 import kotlin.system.measureTimeMillis
 
 fun main() {
-	println(measureTimeMillis { (ConstraintSolverFactory.createSolver("partest", Properties().apply {
+	println(measureTimeMillis { (ConstraintSolverFactory.createSolver("instances.partest", Properties().apply {
 		setProperty("run", "par")
 		setProperty("lim", "2")
 	}).apply {
