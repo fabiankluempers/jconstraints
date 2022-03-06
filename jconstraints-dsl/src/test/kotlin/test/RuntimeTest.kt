@@ -44,6 +44,21 @@ class SeqRuntimeTest {
 		""".trimIndent()
 	)
 
+	private val semiPrimeProblem: SMTProblem = SMTLIBParser.parseSMTProgram(
+		"""
+		(declare-fun A () Int)
+		(declare-fun B () Int)
+		(declare-fun C () Int)
+		(assert (= (* A B) C))
+		(assert (= C 932067827))
+		(assert (not (= 1 A)))
+		(assert (not (= 1 B)))
+		(assert (>= A 0))
+		(assert (>= B 0))
+		(check-sat)
+		""".trimIndent()
+	)
+
 	/**
 	 * loads all the solvers used in this testsuite once, to eliminate the initial load times of
 	 * [ConstraintSolverFactory.createSolver].
@@ -68,6 +83,7 @@ class SeqRuntimeTest {
 		z3.solve(Valuation())
 		z3.unsatCore
 		z3.pop()
+		z3.dispose()
 	}
 
 	private fun genSeqMockComp(numMocks : Int) = SolverCompositionDSL.sequentialComposition {
@@ -288,11 +304,16 @@ class SeqRuntimeTest {
 		println("loadZ3withPar: time spent loading Z3 with ParDSL-Script: $timeSpentLoading")
 	}
 
-	@DisplayName("Report runtime of 20 Z3 instances")
-	@Test fun test20z3parallel() {
+	/**
+	 * Measures the runtime of a SMT-Problem describing the factorization of the semi-prime 932067827.
+	 * Runtime is Measured for a ParallelComposition consisting of 5 Z3 instances in parallel
+	 * and for manually solving the same Problem by 5 Z3 instances in sequence.
+	 */
+	@DisplayName("Report runtime of 5 Z3 instances in ParallelComposition and manually solving the same Problem")
+	@Test fun test5z3parallel() {
 		val comp = SolverCompositionDSL.parallelComposition {
 			parallel()
-			repeat(20) {
+			repeat(5) {
 				solver("Z3") {
 					identifier = "Z3$it"
 				}
@@ -301,34 +322,51 @@ class SeqRuntimeTest {
 				it.values.first()
 			}
 		}
-		var assertion = satProblem.allAssertionsAsConjunction
+		val assertion = semiPrimeProblem.allAssertionsAsConjunction
 		var result : ConstraintSolver.Result?
 		var timeSpentSolving = measureTimeMillis {
 			result = comp.solve(assertion, Valuation())
 		}
 		assertEquals(ConstraintSolver.Result.SAT, result)
-		println("test10z3parallel: time spent solving sat instance: $timeSpentSolving")
-		assertion = unsatProblem.allAssertionsAsConjunction
-		timeSpentSolving = measureTimeMillis {
-			result = comp.solve(assertion, Valuation())
-		}
-		assertEquals(ConstraintSolver.Result.UNSAT, result)
-		println("test10z3parallel: time spent solving unsat instance: $timeSpentSolving")
-		assertion = satProblem.allAssertionsAsConjunction
+		println("test10z3parallel: time spent solving semi prime instance: $timeSpentSolving")
 		val z3s = mutableListOf<ConstraintSolver>()
-		repeat(20) { z3s.add(ConstraintSolverFactory.createSolver("Z3")) }
+		repeat(5) { z3s.add(ConstraintSolverFactory.createSolver("Z3")) }
 		timeSpentSolving = measureTimeMillis {
 			for (z3 in z3s) {
 				z3.solve(assertion, Valuation())
 			}
 		}
-		println("test10z3parallel: time spent manually and sequentially solving sat instance: $timeSpentSolving")
-		assertion = unsatProblem.allAssertionsAsConjunction
-		timeSpentSolving = measureTimeMillis {
-			for (z3 in z3s) {
-				z3.solve(assertion, Valuation())
+		println("test10z3parallel: time spent manually and sequentially solving semi prime instance: $timeSpentSolving")
+	}
+
+	/**
+	 * Runs 10 mocks in parallel with a limit of 7.
+	 * The runtimes of the mocks are as follows:
+	 * mock0 = 0ms
+	 * mock1 = 100ms
+	 * mock2 = 200ms
+	 * etc.
+	 *
+	 * So the expected runtime is ~600ms.
+	 */
+	@DisplayName("Report Runtime of 10 mocks in ParallelComposition")
+	@Test fun test10MocksParallel() {
+		val comp = SolverCompositionDSL.parallelComposition {
+			repeat(10) {
+				solver("mock") {
+					identifier = "mock$it"
+					configuration["timeout"] = "${it}00"
+				}
+				parallelWithLimit(7)
+				finalVerdict { results ->
+					results.values.first()
+				}
 			}
 		}
-		println("test10z3parallel: time spent manually and sequentially solving unsat instance: $timeSpentSolving")
+		val assertion = satProblem.allAssertionsAsConjunction
+		val timeSpentSolving = measureTimeMillis {
+			comp.solve(assertion, Valuation())
+		}
+		println("test10MocksParallel: time spent solving: $timeSpentSolving")
 	}
 }
