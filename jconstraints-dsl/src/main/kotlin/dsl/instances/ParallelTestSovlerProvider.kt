@@ -1,8 +1,13 @@
 package dsl.instances
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
+import gov.nasa.jpf.constraints.api.ConstraintSolver.Result
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
+import solverComposition.dsl.Sat
 import solverComposition.dsl.SolverCompositionDSL
+import solverComposition.dsl.Unsat
+import solverComposition.dsl.UnsatCore
+import solverComposition.entity.DSLResult
 import java.util.*
 
 class ParallelTestSolverProvider : ConstraintSolverProvider {
@@ -39,8 +44,19 @@ class ParallelTestSolverProvider : ConstraintSolverProvider {
 			}
 			parallelWithLimit(5)
 			finalVerdict { results ->
-				println(results)
-				results.values.first()
+				val modeResult = results
+					.values
+					.groupingBy { it.result }
+					.eachCount()
+					.maxByOrNull { it.value }?.key ?: ConstraintSolver.Result.DONT_KNOW
+				results.entries.find { it.value.result == modeResult }?.value ?: DSLResult.dontKnow()
 			}
 		}
 }
+
+fun main() {
+
+}
+
+
+

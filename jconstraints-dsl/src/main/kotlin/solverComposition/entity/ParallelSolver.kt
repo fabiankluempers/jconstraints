@@ -78,8 +78,10 @@ class ParallelComposition(
 		val results = workers.map { exec.submit(it) }
 		remainingLatch.await()
 		waiter.interrupt()
+		Thread.sleep(3) //TODO race condition between threads returning results and main thread collecting them
 		results.forEach {
 			if (it.isDone) {
+				println("done")
 				val result = it.get()
 				resultMap[result.first] = result.second
 			} else {

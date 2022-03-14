@@ -50,7 +50,11 @@ class ParallelBehaviour(
 	val ignoredSubset: Set<ConstraintSolver.Result>
 ) : ConstraintSolverBehaviour(identifier, runIf, useContext)
 
-data class DSLResult(val result: ConstraintSolver.Result, val valuation: Valuation)
+data class DSLResult(val result: ConstraintSolver.Result, val valuation: Valuation) {
+	companion object {
+		fun dontKnow() = DSLResult(ConstraintSolver.Result.DONT_KNOW, Valuation())
+	}
+}
 
 abstract class ConstraintSolverComposition<T : ConstraintSolverBehaviour>(
 	solvers: List<SolverWithBehaviour<T>>

@@ -6,12 +6,9 @@ import gov.nasa.jpf.constraints.api.Valuation
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem
 import gov.nasa.jpf.constraints.smtlibUtility.parser.SMTLIBParser
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
+import gov.nasa.jpf.constraints.util.ExpressionUtil
 import solverComposition.entity.CompositionContext
 import java.util.*
-
-fun main() {
-	partest()
-}
 
 fun ConstraintSolver.runSolver() {
 	val ctx = createContext()

@@ -42,10 +42,10 @@ class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder,
 	}
 
 	override fun solver(
-		solver: String,
+		idInFactory: String,
 		func: SequentialSolverBuilder.() -> Unit
 	): String {
-		val solverWithBehaviour = SequentialSolverBuilder().apply(func).build(solver)
+		val solverWithBehaviour = SequentialSolverBuilder().apply(func).build(idInFactory)
 		this.solvers.add(solverWithBehaviour)
 		return solverWithBehaviour.behaviour.identifier
 	}

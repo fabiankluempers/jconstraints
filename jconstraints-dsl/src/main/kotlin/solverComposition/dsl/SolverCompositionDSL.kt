@@ -45,7 +45,7 @@ abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
 	abstract fun dslSolver(func: R.() -> Unit = {}) : String
 
 	abstract fun solver(
-		solver: String,
+		idInFactory: String,
 		func: T.() -> Unit = {}
 	) : String
 }

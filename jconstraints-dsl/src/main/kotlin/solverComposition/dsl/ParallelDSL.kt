@@ -54,8 +54,8 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, Par
 		finalVerdict = func
 	}
 
-	override fun solver(solver: String, func: ParallelSolverBuilder.() -> Unit): String {
-		val solverWithBehaviour = ParallelSolverBuilder().apply(func).build(solver)
+	override fun solver(idInFactory: String, func: ParallelSolverBuilder.() -> Unit): String {
+		val solverWithBehaviour = ParallelSolverBuilder().apply(func).build(idInFactory)
 		solvers.add(solverWithBehaviour)
 		return solverWithBehaviour.behaviour.identifier
 	}
