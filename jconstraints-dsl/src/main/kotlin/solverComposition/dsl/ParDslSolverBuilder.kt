@@ -17,21 +17,31 @@
  * limitations under the License.
  */
 
-package test
+package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
-import solverComposition.dsl.SolverCompositionDSL
-import java.util.*
+import solverComposition.entity.ParallelBehaviour
+import solverComposition.entity.SolverWithBehaviour
 
-class TestSequentialCompositionProvider() : ConstraintSolverProvider {
-	override fun getNames(): Array<String> = arrayOf("test seq prov")
+class ParDslSolverBuilder : ParallelSolverBuilder() {
+	private lateinit var solver: ConstraintSolver
 
-	override fun createSolver(config: Properties?): ConstraintSolver = SolverCompositionDSL.sequentialComposition {
-		solver("mock") {
-			identifier = "mock"
-			continuation { _, result, _ -> result.stop() }
-		}
-		startWith { "mock" }
+	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
+		solver = ParallelCompositionBuilder().apply(func).build()
+	}
+
+	fun sequential(func: SequentialCompositionBuilder.() -> Unit) {
+		solver = SequentialCompositionBuilder().apply(func).build()
+	}
+
+	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
+		return SolverWithBehaviour(
+			solver, ParallelBehaviour(
+				identifier = identifier,
+				runIf = runIf,
+				useContext = useContext,
+				ignoredSubset = ignoredSubset
+			)
+		)
 	}
 }

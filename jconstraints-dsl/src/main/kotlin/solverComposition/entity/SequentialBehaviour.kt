@@ -17,21 +17,17 @@
  * limitations under the License.
  */
 
-package test
+package solverComposition.entity
 
-import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
-import solverComposition.dsl.SolverCompositionDSL
-import java.util.*
+import gov.nasa.jpf.constraints.api.Expression
+import gov.nasa.jpf.constraints.api.Valuation
+import solverComposition.dsl.ContinuationBuilder
+import solverComposition.dsl.ContinuationResult
 
-class TestSequentialCompositionProvider() : ConstraintSolverProvider {
-	override fun getNames(): Array<String> = arrayOf("test seq prov")
-
-	override fun createSolver(config: Properties?): ConstraintSolver = SolverCompositionDSL.sequentialComposition {
-		solver("mock") {
-			identifier = "mock"
-			continuation { _, result, _ -> result.stop() }
-		}
-		startWith { "mock" }
-	}
-}
+class SequentialBehaviour(
+	identifier: String,
+	runIf: (List<Expression<Boolean>>) -> Boolean,
+	val continuation: (List<Expression<Boolean>>, ContinuationResult, Valuation) -> ContinuationBuilder,
+	val enableUnsatCore: Boolean,
+	useContext: Boolean,
+) : ConstraintSolverBehaviour(identifier, runIf, useContext)

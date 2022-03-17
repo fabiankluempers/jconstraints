@@ -1,4 +1,4 @@
-package test/*
+/*
  * Copyright 2015 United States Government, as represented by the Administrator
  *                of the National Aeronautics and Space Administration. All Rights Reserved.
  *           2017-2021 The jConstraints Authors
@@ -16,6 +16,8 @@ package test/*
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package test
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import org.junit.jupiter.api.Assertions.assertEquals

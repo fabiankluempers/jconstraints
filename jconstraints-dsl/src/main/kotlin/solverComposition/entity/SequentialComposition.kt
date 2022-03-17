@@ -50,7 +50,10 @@ class SequentialComposition(
 						ctx.enableUnsatTracking()
 						isUnsatCore = true
 					} else {
-						logger.log(Level.WARNING, "The solver with the identifier ${behaviour.identifier} in $this does not support unsat core tracking. Stopping with ERROR")
+						logger.log(
+							Level.WARNING,
+							"The solver with the identifier ${behaviour.identifier} in $this does not support unsat core tracking. Stopping with ERROR"
+						)
 						return DSLResult(Result.ERROR, Valuation())
 					}
 				}
@@ -67,7 +70,10 @@ class SequentialComposition(
 								actualAssertions = (ctx as UNSATCoreSolver).unsatCore
 								//TODO check if empty?
 							} else {
-								logger.log(Level.WARNING,"Continuation of the solver with the identifier ${behaviour.identifier} in $this tried to replace with unsat core but solver is not enabled for unsat core tracking or does not support it. Continuing with original assertions")
+								logger.log(
+									Level.WARNING,
+									"Continuation of the solver with the identifier ${behaviour.identifier} in $this tried to replace with unsat core but solver is not enabled for unsat core tracking or does not support it. Continuing with original assertions"
+								)
 							}
 						}
 						if (continuation.replaceWithNewModel) {
@@ -84,19 +90,24 @@ class SequentialComposition(
 				val solver = currentSolver.solver
 				if (behaviour.enableUnsatCore) {
 					if (solver is UNSATCoreSolver) {
-						logger.log(Level.WARNING, """The solver with the identifier ${behaviour.identifier} in 
+						logger.log(
+							Level.WARNING, """The solver with the identifier ${behaviour.identifier} in 
 							$this has unsat core tracking enabled but does not use context. 
-							The obtained unsat core is probably the same as the input""".trimMargin())
+							The obtained unsat core is probably the same as the input""".trimMargin()
+						)
 						solver.enableUnsatTracking()
 						isUnsatCore = true
 					} else {
-						logger.log(Level.WARNING, """The solver with the identifier ${behaviour.identifier} in $this 
-							does not support unsat core tracking. Stopping with ERROR""".trimIndent())
+						logger.log(
+							Level.WARNING, """The solver with the identifier ${behaviour.identifier} in $this 
+							does not support unsat core tracking. Stopping with ERROR""".trimIndent()
+						)
 						return DSLResult(Result.ERROR, Valuation())
 					}
 				}
 				if (behaviour.runIf(actualAssertions)) {
-					val dslSolveResult = DSLResult(solver.solve(ExpressionUtil.and(actualAssertions), valuation), valuation)
+					val dslSolveResult =
+						DSLResult(solver.solve(ExpressionUtil.and(actualAssertions), valuation), valuation)
 					actualResult = dslSolveResult.result
 					continuationResult = actualResult.toDslResult()
 					valuation = dslSolveResult.valuation
@@ -109,10 +120,12 @@ class SequentialComposition(
 								actualAssertions = (solver as UNSATCoreSolver).unsatCore
 								//TODO check if empty?
 							} else {
-								logger.log(Level.WARNING,"""Continuation of the solver with the identifier 
+								logger.log(
+									Level.WARNING, """Continuation of the solver with the identifier 
 									${behaviour.identifier} in $this tried to replace with unsat core but solver is not 
 									enabled for unsat core tracking or does not support it. 
-									Continuing with original assertions""".trimIndent())
+									Continuing with original assertions""".trimIndent()
+								)
 							}
 						}
 						if (continuation.replaceWithNewModel) {

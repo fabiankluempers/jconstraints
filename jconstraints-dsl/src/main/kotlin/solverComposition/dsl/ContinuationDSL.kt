@@ -20,99 +20,6 @@
 package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
-import solverComposition.entity.SequentialBehaviour
-import solverComposition.entity.SequentialComposition
-import solverComposition.entity.SolverWithBehaviour
-
-class SequentialCompositionBuilder : CompositionBuilder<SequentialSolverBuilder, SeqDslSolverBuilder>() {
-	private val solvers = mutableListOf<SolverWithBehaviour<SequentialBehaviour>>()
-	private lateinit var startWith: (assertions: List<Expression<Boolean>>) -> String
-
-	override fun build(): ConstraintSolver {
-		val actualSolvers = solvers.toList()
-		solvers.clear()
-		return SequentialComposition(actualSolvers, startWith)
-	}
-
-	fun startWith(func: (assertions: List<Expression<Boolean>>) -> String) {
-		startWith = func
-	}
-
-	override fun solver(
-		idInFactory: String,
-		func: SequentialSolverBuilder.() -> Unit
-	): String {
-		val solverWithBehaviour = SequentialSolverBuilder().apply(func).build(idInFactory)
-		this.solvers.add(solverWithBehaviour)
-		return solverWithBehaviour.behaviour.identifier
-	}
-
-	override fun dslSolver(
-		func: SeqDslSolverBuilder.() -> Unit
-	): String {
-		val solverWithBehaviour = SeqDslSolverBuilder().apply(func).build()
-		this.solvers.add(solverWithBehaviour)
-		return solverWithBehaviour.behaviour.identifier
-	}
-}
-
-open class SequentialSolverBuilder : SolverBuilder<SequentialBehaviour>() {
-	protected lateinit var continuation: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder
-	protected var useContext = false
-	protected var enableUnsatCoreTracking = false
-
-	fun continuation(func: (assertions: List<Expression<Boolean>>, result: ContinuationResult, valuation: Valuation) -> ContinuationBuilder) {
-		continuation = func
-	}
-
-	fun useContext() {
-		useContext = true
-	}
-
-	fun enableUnsatCoreTracking() {
-		enableUnsatCoreTracking = true
-	}
-
-	override fun build(provIdentifier: String?): SolverWithBehaviour<SequentialBehaviour> {
-		return SolverWithBehaviour(
-			ConstraintSolverFactory.createSolver(provIdentifier, configuration),
-			SequentialBehaviour(
-				identifier = identifier,
-				runIf = runIf,
-				continuation = continuation,
-				useContext = useContext,
-				enableUnsatCore = enableUnsatCoreTracking,
-			)
-		)
-	}
-}
-
-class SeqDslSolverBuilder : SequentialSolverBuilder() {
-	private lateinit var solver: ConstraintSolver
-
-	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
-		solver = ParallelCompositionBuilder().apply(func).build()
-	}
-
-	fun sequential(func: SequentialCompositionBuilder.() -> Unit) {
-		solver = SequentialCompositionBuilder().apply(func).build()
-	}
-
-	override fun build(provIdentifier: String?): SolverWithBehaviour<SequentialBehaviour> {
-		return SolverWithBehaviour(
-			solver, SequentialBehaviour(
-				identifier = identifier,
-				runIf = runIf,
-				continuation = continuation,
-				useContext = useContext,
-				enableUnsatCore = enableUnsatCoreTracking,
-			)
-		)
-	}
-}
 
 sealed class ContinuationBuilder(internal val continuation: Continuation) {
 
@@ -146,7 +53,12 @@ class SatContinuationBuilder(continuation: Continuation) : ContinuationBuilder(c
 sealed class ContinuationResult() {
 	abstract fun stop(): ContinuationBuilder
 	infix fun stopWith(result: ConstraintSolver.Result) = DefaultContinuationBuilder(Continuation(result))
-	open infix fun continueWith(solverIdentifier: String) : ContinuationBuilder = DefaultContinuationBuilder(Continuation(result = ConstraintSolver.Result.DONT_KNOW, continueMode = Continue(solverIdentifier)))
+	open infix fun continueWith(solverIdentifier: String): ContinuationBuilder = DefaultContinuationBuilder(
+		Continuation(
+			result = ConstraintSolver.Result.DONT_KNOW,
+			continueMode = Continue(solverIdentifier)
+		)
+	)
 }
 
 object Unsat : ContinuationResult() {
