@@ -20,7 +20,6 @@
 package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 import solverComposition.entity.*
 
 class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, ParDslSolverBuilder>() {
@@ -38,18 +37,38 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, Par
 
 	private lateinit var runConfiguration: RunConf
 
+	/**
+	 * Specifies that the integrated SMT-Solvers should be executed sequentially
+	 */
 	fun sequential() {
 		runConfiguration = RunConf(RunConfiguration.SEQUENTIAL, 0)
 	}
 
+	/**
+	 * Specifies that the integrated SMT-Solvers should be executed in parallel with a limit.
+	 * An integrated SMT-Solver only counts towards reaching the limit if the obtained verdict is not in its ignoredSubset.
+	 *
+	 * @see ParallelSolverBuilder.ignoredSubset
+	 *
+	 * @param limit the limit
+	 */
 	fun parallelWithLimit(limit: Int) {
 		runConfiguration = RunConf(RunConfiguration.PARALLEL, limit)
 	}
 
+	/**
+	 * Specifies that the integrated SMT-Solvers should be executed in parallel.
+	 */
 	fun parallel() {
 		runConfiguration = RunConf(RunConfiguration.PARALLEL, -1)
 	}
 
+	/**
+	 * Specifies how all the obtained verdicts from the integrated SMT-Solvers should be aggregated into a final verdict.
+	 *
+	 * @param func the aggregation function.
+	 * The [DSLResult] of an integrated SMT-Solver is referenced by it [SolverBuilder.identifier] in the results map.
+	 */
 	fun finalVerdict(func: (results: Map<String, DSLResult>) -> DSLResult) {
 		finalVerdict = func
 	}
@@ -67,43 +86,3 @@ class ParallelCompositionBuilder : CompositionBuilder<ParallelSolverBuilder, Par
 	}
 }
 
-open class ParallelSolverBuilder : SolverBuilder<ParallelBehaviour>() {
-
-	protected var useContext = false
-
-	fun useContext() {
-		useContext = true
-	}
-
-	var ignoredSubset: Set<ConstraintSolver.Result> = setOf()
-
-	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
-		return SolverWithBehaviour(ConstraintSolverFactory.createSolver(provIdentifier, configuration), ParallelBehaviour(
-			identifier = identifier,
-			runIf = runIf,
-			useContext = useContext,
-			ignoredSubset = ignoredSubset
-		))
-	}
-}
-
-class ParDslSolverBuilder : ParallelSolverBuilder() {
-	private lateinit var solver : ConstraintSolver
-
-	fun parallel(func: ParallelCompositionBuilder.() -> Unit) {
-		solver = ParallelCompositionBuilder().apply(func).build()
-	}
-
-	fun sequential(func: SequentialCompositionBuilder.() -> Unit) {
-		solver = SequentialCompositionBuilder().apply(func).build()
-	}
-
-	override fun build(provIdentifier: String?): SolverWithBehaviour<ParallelBehaviour> {
-		return SolverWithBehaviour(solver, ParallelBehaviour(
-			identifier = identifier,
-			runIf = runIf,
-			useContext = useContext,
-			ignoredSubset = ignoredSubset
-		))
-	}
-}

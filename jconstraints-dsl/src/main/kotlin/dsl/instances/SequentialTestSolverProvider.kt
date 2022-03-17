@@ -19,19 +19,12 @@
 
 package dsl.instances
 
-import IsMulExpressionVisitor
 import gov.nasa.jpf.constraints.api.ConstraintSolver
 import gov.nasa.jpf.constraints.api.ConstraintSolver.Result
-import gov.nasa.jpf.constraints.api.Expression
-import gov.nasa.jpf.constraints.api.Valuation
-import gov.nasa.jpf.constraints.expressions.AbstractExpressionVisitor
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
 import solverComposition.dsl.*
 import java.util.*
-import kotlin.random.Random
 
-
-fun List<Expression<Boolean>>.evaluateSMT(valuation: Valuation) = all { it.evaluateSMT(valuation) }
 
 class SequentialTestSolverProvider : ConstraintSolverProvider {
 	override fun getNames(): Array<String> {

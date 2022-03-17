@@ -17,21 +17,26 @@
  * limitations under the License.
  */
 
-package test
+package solverComposition.dsl
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver
-import gov.nasa.jpf.constraints.solvers.ConstraintSolverProvider
-import solverComposition.dsl.SolverCompositionDSL
-import java.util.*
+import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory
 
-class TestSequentialCompositionProvider() : ConstraintSolverProvider {
-	override fun getNames(): Array<String> = arrayOf("test seq prov")
+@SolverCompositionDslMarker
+abstract class CompositionBuilder<T : SolverBuilder<*>, R : SolverBuilder<*>> {
+	internal abstract fun build(): ConstraintSolver
 
-	override fun createSolver(config: Properties?): ConstraintSolver = SolverCompositionDSL.sequentialComposition {
-		solver("mock") {
-			identifier = "mock"
-			continuation { _, result, _ -> result.stop() }
-		}
-		startWith { "mock" }
-	}
+	abstract fun dslSolver(func: R.() -> Unit = {}): String
+
+	/**
+	 * Adds a SMT-Solver to the ParallelSolverComposition.
+	 *
+	 * @param idInFactory the String that identifies the SMT-Solver in the [ConstraintSolverFactory].
+	 * @param func the Behaviour of the SMT-Solver can be defined
+	 * by supplying a function that manipulates the [ParallelSolverBuilder] Receiver.
+	 */
+	abstract fun solver(
+		idInFactory: String,
+		func: T.() -> Unit = {}
+	): String
 }

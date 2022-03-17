@@ -13,10 +13,8 @@ import org.junit.jupiter.api.TestInstance
 import solverComposition.dsl.*
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.math.roundToInt
 import kotlin.system.measureNanoTime
 import kotlin.system.measureTimeMillis
-import kotlin.math.round
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RuntimeTest {
@@ -113,7 +111,7 @@ class RuntimeTest {
 		println("${this::measureSeqComp.name}: Copy for latex: ${runtimeMeasurementsUnsat.toLatexFormat()} % average: ${runtimeMeasurementsUnsat.sum() / runtimeMeasurementsUnsat.size}")
 	}
 
-	private fun List<Long>.toLatexFormat(isNano: Boolean = true)  = this
+	private fun List<Long>.toLatexFormat(isNano: Boolean = true) = this
 		.mapIndexed(Int::to)
 		.joinToString("") {
 			"(${
@@ -125,6 +123,7 @@ class RuntimeTest {
 
 	/**
 	 * Manual Implementation of the Composition in [measureSeqComp].
+	 * The Context is reused between solve calls.
 	 */
 	@Test
 	fun measureSeqManualReuseCTX() {
@@ -162,7 +161,7 @@ class RuntimeTest {
 	}
 
 	/**
-	 * Manual Implementation of the Composition in [measureSeqComp].
+	 * Manual Implementations of the Composition in [measureSeqComp].
 	 * A New Context is created for every solve call.
 	 */
 	@Test
@@ -207,7 +206,7 @@ class RuntimeTest {
 	/**
 	 * Measures the runtime of a SMT-Problem describing the factorization of the semi-prime 932067827.
 	 * Runtime is Measured for a ParallelComposition consisting of 5 Z3 instances in parallel
-	 * and for manually solving the same Problem by 5 Z3 instances in sequence.
+	 * and for manually solving the same Problem by one Z3 instance.
 	 */
 	@Test
 	fun measureParComp() {
@@ -269,7 +268,8 @@ class RuntimeTest {
 	fun measureMockParComp() {
 		val runtimeMeasurements = mutableListOf<Long>()
 		val comp = SolverCompositionDSL.parallelComposition {
-			repeat(1000) {
+			// change to 100 or 1000 to reproduce thesis results
+			repeat(10) {
 				solver("mock") {
 					identifier = "mock$it"
 					configuration["timeout"] = "${it}00"
